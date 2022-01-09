@@ -1,0 +1,35 @@
+plugins {
+	id 'org.springframework.boot' version '2.6.2'
+	id 'io.spring.dependency-management' version '1.0.11.RELEASE'
+	id 'java'
+}
+
+group = 'com.mydb'
+version = '0.0.1-SNAPSHOT'
+sourceCompatibility = '11'
+
+ext {
+	springBootVersion = '2.6.1'
+	springSecurityVersion = '5.6.0'
+	springCloudVersion = '3.1.0'
+	lombokVersion = '1.18.22'
+}
+
+repositories {
+	mavenCentral()
+}
+
+dependencies {
+	annotationProcessor "org.projectlombok:lombok:$lombokVersion"
+	implementation "org.projectlombok:lombok:$lombokVersion"
+	implementation "org.springframework.boot:spring-boot-starter-validation:$springBootVersion"
+	implementation "org.springframework.boot:spring-boot-starter-web:$springBootVersion"
+	implementation group: 'org.springframework.boot', name: 'spring-boot-devtools', version: '2.6.2'
+	implementation 'org.springframework.boot:spring-boot-starter'
+	implementation "org.springframework.boot:spring-boot-starter-actuator:$springBootVersion"
+	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}
+
+test {
+	useJUnitPlatform()
+}
