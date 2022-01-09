@@ -42,5 +42,4 @@ public class MasterController {
       return ResponseEntity.notFound().build();
     }
   }
-
 }
