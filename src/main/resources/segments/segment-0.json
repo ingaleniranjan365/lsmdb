@@ -1,0 +1,114 @@
+{
+  "PRB34222422421114" : {
+    "probeId" : "PRB34222422421114",
+    "eventId" : "7707d6a0-61b5-11ec-9f10-0800200c9a66",
+    "messageType" : "spaceCartography",
+    "eventReceivedTime" : 432452543535,
+    "eventTransmissionTime" : 1640018265951,
+    "messageData" : [ {
+      "measureName" : "Spherical coordinate system - euclidean distance",
+      "measureCode" : "SCSED",
+      "measureUnit" : "parsecs",
+      "measureValue" : "539900000",
+      "measureValueDescription" : "Euclidean distance from earth",
+      "measureType" : "Positioning",
+      "componentReading" : 4.3E24
+    }, {
+      "measureName" : "Spherical coordinate system - azimuth angle",
+      "measureCode" : "SCSEAA",
+      "measureUnit" : "degrees",
+      "measureValue" : "170.42",
+      "measureValueDescription" : "Azimuth angle from earth",
+      "measureType" : "Positioning",
+      "componentReading" : 4600.0
+    }, {
+      "measureName" : "Spherical coordinate system - polar angle",
+      "measureCode" : "SCSEPA",
+      "measureUnit" : "degrees",
+      "measureValue" : "30.23",
+      "measureValueDescription" : "Polar/Inclination angle from earth",
+      "measureType" : "Positioning",
+      "componentReading" : 5.6E43
+    }, {
+      "measureName" : "Localized electromagnetic frequency reading",
+      "measureCode" : "LER",
+      "measureUnit" : "hz",
+      "measureValue" : "300000",
+      "measureValueDescription" : "Electromagnetic frequency reading",
+      "measureType" : "Composition",
+      "componentReading" : 3.0E15
+    }, {
+      "measureName" : "Probe lifespan estimate",
+      "measureCode" : "PLSE",
+      "measureUnit" : "Years",
+      "measureValue" : "239000",
+      "measureValueDescription" : "Number of years left in probe lifespan",
+      "measureType" : "Probe",
+      "componentReading" : 6524000.0
+    }, {
+      "measureName" : "Probe diagnostic logs",
+      "measureCode" : "PDL",
+      "measureUnit" : "Text",
+      "measureValue" : "some log data from probe",
+      "measureValueDescription" : "the diagnostic information from the probe",
+      "measureType" : "Probe",
+      "componentReading" : 0.0
+    } ]
+  },
+  "PRB34222422421314" : {
+    "probeId" : "PRB34222422421314",
+    "eventId" : "7707d6a0-61b5-11ec-9f10-0800200c9a66",
+    "messageType" : "spaceCartography",
+    "eventReceivedTime" : 432452543535,
+    "eventTransmissionTime" : 1640018265951,
+    "messageData" : [ {
+      "measureName" : "Spherical coordinate system - euclidean distance",
+      "measureCode" : "SCSED",
+      "measureUnit" : "parsecs",
+      "measureValue" : "539900000",
+      "measureValueDescription" : "Euclidean distance from earth",
+      "measureType" : "Positioning",
+      "componentReading" : 4.3E24
+    }, {
+      "measureName" : "Spherical coordinate system - azimuth angle",
+      "measureCode" : "SCSEAA",
+      "measureUnit" : "degrees",
+      "measureValue" : "170.42",
+      "measureValueDescription" : "Azimuth angle from earth",
+      "measureType" : "Positioning",
+      "componentReading" : 4600.0
+    }, {
+      "measureName" : "Spherical coordinate system - polar angle",
+      "measureCode" : "SCSEPA",
+      "measureUnit" : "degrees",
+      "measureValue" : "30.23",
+      "measureValueDescription" : "Polar/Inclination angle from earth",
+      "measureType" : "Positioning",
+      "componentReading" : 5.6E43
+    }, {
+      "measureName" : "Localized electromagnetic frequency reading",
+      "measureCode" : "LER",
+      "measureUnit" : "hz",
+      "measureValue" : "300000",
+      "measureValueDescription" : "Electromagnetic frequency reading",
+      "measureType" : "Composition",
+      "componentReading" : 3.0E15
+    }, {
+      "measureName" : "Probe lifespan estimate",
+      "measureCode" : "PLSE",
+      "measureUnit" : "Years",
+      "measureValue" : "239000",
+      "measureValueDescription" : "Number of years left in probe lifespan",
+      "measureType" : "Probe",
+      "componentReading" : 6524000.0
+    }, {
+      "measureName" : "Probe diagnostic logs",
+      "measureCode" : "PDL",
+      "measureUnit" : "Text",
+      "measureValue" : "some log data from probe",
+      "measureValueDescription" : "the diagnostic information from the probe",
+      "measureType" : "Probe",
+      "componentReading" : 0.0
+    } ]
+  }
+}
