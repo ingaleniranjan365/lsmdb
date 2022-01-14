@@ -1,23 +1,14 @@
 package com.mydb.mydb.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.google.gson.Gson;
+import com.mydb.mydb.SegmentConfig;
 import com.mydb.mydb.entity.Payload;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
-import java.io.FileInputStream;
 import java.io.FileOutputStream;
-import java.io.FileWriter;
 import java.io.IOException;
-import java.lang.reflect.Type;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.nio.file.StandardOpenOption;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -33,14 +24,32 @@ public class FileIOService {
     outputStream.close();
   }
 
+  public void persist(final String configPath, final SegmentConfig config) throws IOException {
+    var json = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(config);
+    FileOutputStream outputStream = new FileOutputStream(configPath);
+    outputStream.write(json.getBytes());
+    outputStream.close();
+  }
+
   public Optional<Map<String, Payload>> getSegment(final String path) {
-     try {
+    try {
       return Optional.of(
           mapper.readValue(new File(path), new TypeReference<Map<String, Payload>>() {
           }));
     } catch (IOException e) {
-       e.printStackTrace();
-       return Optional.empty();
-     }
+      e.printStackTrace();
+      return Optional.empty();
+    }
   }
+
+  public Optional<SegmentConfig> getSegmentConfig(final String path) {
+    try {
+      return Optional.of(
+          mapper.readValue(new File(path), SegmentConfig.class));
+    } catch (IOException e) {
+      e.printStackTrace();
+      return Optional.empty();
+    }
+  }
+
 }

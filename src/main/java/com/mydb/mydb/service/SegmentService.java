@@ -1,23 +1,42 @@
 package com.mydb.mydb.service;
 
+import com.mydb.mydb.SegmentConfig;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.stream.IntStream;
 
 @Service
 public class SegmentService {
 
+  private final SegmentConfig segmentConfig;
   public static final String PATH_TO_REPOSITORY_ROOT =  System.getProperty("user.dir");
 
+  public SegmentConfig getCurrentSegmentConfig() {
+    return new SegmentConfig(segmentConfig.getBasePath(), segmentConfig.getCount());
+  }
+
+  @Autowired
+  public SegmentService(@Qualifier("segmentConfig") final SegmentConfig segmentConfig) {
+      this.segmentConfig = segmentConfig;
+  }
 
   public String getNewSegmentPath() {
-    return PATH_TO_REPOSITORY_ROOT + "/src/main/resources/segments/segment-0.json";
+    var nextPath = getPathForSegment(segmentConfig.getCount());
+    segmentConfig.setCount(segmentConfig.getCount() + 1);
+    return nextPath;
   }
 
   public List<String> getAllSegmentPaths() {
-    return List.of(PATH_TO_REPOSITORY_ROOT + "/src/main/resources/segments/segment-2.json",
-        PATH_TO_REPOSITORY_ROOT + "/src/main/resources/segments/segment-1.json",
-        PATH_TO_REPOSITORY_ROOT + "/src/main/resources/segments/segment-0.json"
-        );
+    return IntStream.rangeClosed(0, segmentConfig.getCount())
+        .boxed()
+        .map(this::getPathForSegment)
+        .toList();
+  }
+
+  private String getPathForSegment(Integer i) {
+    return segmentConfig.getBasePath() + String.format("/segment-%d.json", i);
   }
 }
