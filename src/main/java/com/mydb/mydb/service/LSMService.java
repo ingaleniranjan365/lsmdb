@@ -15,8 +15,8 @@ import java.util.TreeMap;
 public class LSMService {
 
   public static final long MAX_MEMTABLE_SIZE = 2;
-  private FileIOService fileIOService;
-  private SegmentService segmentService;
+  private final FileIOService fileIOService;
+  private final SegmentService segmentService;
   private Map<String, Payload> memTable = new TreeMap<>();
 
   @Autowired
@@ -36,9 +36,6 @@ public class LSMService {
   }
 
   public Payload getData(String probeId) throws UnknownProbeException {
-//    return Optional.ofNullable(memTable.get(probeId))
-//        .orElse(Optional.ofNullable(getDataFromSegments(probeId))
-//            .orElseThrow(() -> new UnknownProbeException(String.format("Probe id - %s not found!", probeId))));
     var data = memTable.getOrDefault(probeId, null);
     if (data == null) {
       var dataFromSegments = getDataFromSegments(probeId);
@@ -53,7 +50,8 @@ public class LSMService {
   private Payload getDataFromSegments(final String probeId) throws UnknownProbeException {
 
     return segmentService.getAllSegmentPaths().stream().map(path ->
-            fileIOService.getSegment(path))
+        { var x = fileIOService.getSegment(path, probeId);
+          return fileIOService.getSegment(path);})
         .filter(Optional::isPresent)
         .map(Optional::get)
         .filter(x -> x.containsKey(probeId))
