@@ -12,7 +12,6 @@ import java.util.stream.IntStream;
 public class SegmentService {
 
   private final SegmentConfig segmentConfig;
-  public static final String PATH_TO_REPOSITORY_ROOT =  System.getProperty("user.dir");
 
   public SegmentConfig getCurrentSegmentConfig() {
     return new SegmentConfig(segmentConfig.getBasePath(), segmentConfig.getCount());
@@ -37,6 +36,11 @@ public class SegmentService {
   }
 
   private String getPathForSegment(Integer i) {
-    return segmentConfig.getBasePath() + String.format("/segment-%d.json", i);
+    return segmentConfig.getBasePath() + String.format("/segment-%d", i);
   }
+
+  public String getPathForSegment(String segmentName) {
+    return segmentConfig.getBasePath() + "/"+ segmentName ;
+  }
+
 }

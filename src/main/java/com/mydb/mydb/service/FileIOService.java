@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mydb.mydb.SegmentConfig;
 import com.mydb.mydb.entity.Payload;
+import com.mydb.mydb.entity.SegmentIndex;
 import com.mydb.mydb.entity.SegmentMetadata;
 import org.apache.commons.io.FileUtils;
 import org.springframework.stereotype.Service;
@@ -21,68 +22,43 @@ import java.util.Optional;
 public class FileIOService {
 
   public static final ObjectMapper mapper = new ObjectMapper();
-  public final Map<String, SegmentMetadata> segmentMetadataMap = new HashMap<>();
 
-  public void persist(final String segmentPath, final Map<String, Payload> memTable) throws IOException {
-    var json = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(memTable);
-    FileOutputStream outputStream = new FileOutputStream(segmentPath);
-    outputStream.write(json.getBytes());
-    outputStream.close();
-    persist(memTable);
+  public SegmentIndex persistConfig(final String segmentPath, final Map<String, Payload> memTable) {
+    final Map<String, SegmentMetadata> index = new HashMap<>();
+    File segment = new File(segmentPath);
+    //TODO: 1. Figure out how to write memTable to file without iterating
+    memTable.forEach((key, value) -> {
+      var bytes = SerializationUtils.serialize(value);
+      index.put(key, new SegmentMetadata((int) (segment.length()), bytes.length));
+      try {
+        FileUtils.writeByteArrayToFile(segment, bytes, true);
+      } catch (IOException ex) {
+        throw new RuntimeException(ex.getMessage());
+      }
+    });
+    var pathSplit =  segmentPath.split("/");
+    var segmentName =  pathSplit [pathSplit.length - 1];
+
+    return new SegmentIndex(segmentName, index);
   }
 
-  public void persist(final String configPath, final SegmentConfig config) throws IOException {
+  public void persistConfig(final String configPath, final SegmentConfig config) throws IOException {
     var json = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(config);
     FileOutputStream outputStream = new FileOutputStream(configPath);
     outputStream.write(json.getBytes());
     outputStream.close();
   }
 
-  private void persist(final Map<String, Payload> memTable) throws IOException {
-    File someBinaryFile = new File("/Users/niranjani/code/big-o/mydb/src/main/resources/segments" +
-        "/binary_file");
-    memTable.forEach((key, value) -> {
-      try {
-        var bytes = SerializationUtils.serialize(value);
-        segmentMetadataMap.put(key, new SegmentMetadata((int) (someBinaryFile.length()), bytes.length));
-        FileUtils.writeByteArrayToFile(someBinaryFile, bytes, true);
-      } catch (IOException e) {
-        e.printStackTrace();
-      }
-    });
-  }
-
-  public Optional<Map<String, Payload>> getSegment(final String path) {
-    try {
-      return Optional.of(
-          mapper.readValue(new File(path), new TypeReference<Map<String, Payload>>() {
-          }));
-    } catch (IOException e) {
-      e.printStackTrace();
-      return Optional.empty();
-    }
-  }
-
-  public Optional<Map<String, Payload>> getSegment(final String path, String probeId) {
+  public Optional<Payload> getPayload(final String path, final SegmentMetadata metadata) {
     RandomAccessFile raf = null;
     try {
-      raf = new RandomAccessFile("/Users/niranjani/code/big-o/mydb/src/main/resources/segments" +
-          "/binary_file", "r");
-      var metadata = segmentMetadataMap.get(probeId);
+      raf = new RandomAccessFile(path, "r");
       raf.seek((long) metadata.getOffset());
       byte[] in = new byte[metadata.getSize()];
       raf.read(in, 0, metadata.getSize());
       var obj = SerializationUtils.deserialize(in);
       var jsonStr = mapper.writeValueAsString(obj);
-      var payload = mapper.readValue(jsonStr, Payload.class);
-    } catch (IOException e) {
-      e.printStackTrace();
-    }
-
-    try {
-      return Optional.of(
-          mapper.readValue(new File(path), new TypeReference<Map<String, Payload>>() {
-          }));
+      return Optional.of(mapper.readValue(jsonStr, Payload.class));
     } catch (IOException e) {
       e.printStackTrace();
       return Optional.empty();
