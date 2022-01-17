@@ -69,6 +69,13 @@ public class LSMService {
     heap.addAll(firstElements);
     while (heap.size() > 0) {
       var next = heap.remove();
+      var nextNext = next;
+      while(next.getProbeId().equals(nextNext.getProbeId()) && heap.size() > 0){
+        nextNext = heap.remove();
+      }
+      if(!nextNext.equals(next)){
+        heap.add(nextNext);
+      }
       var segmentIndex = indices.get(next.getIndex());
       var in = fileIOService.readBytes(
           segmentService.getPathForSegment(segmentIndex.getSegmentName()),
