@@ -5,9 +5,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
-import java.util.stream.IntStream;
-
 @Service
 public class SegmentService {
 
@@ -26,13 +23,6 @@ public class SegmentService {
     var nextPath = getPathForSegment(segmentConfig.getCount());
     segmentConfig.setCount(segmentConfig.getCount() + 1);
     return nextPath;
-  }
-
-  public List<String> getAllSegmentPaths() {
-    return IntStream.rangeClosed(0, segmentConfig.getCount())
-        .boxed()
-        .map(this::getPathForSegment)
-        .toList();
   }
 
   private String getPathForSegment(Integer i) {

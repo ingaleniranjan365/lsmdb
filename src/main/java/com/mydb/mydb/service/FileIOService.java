@@ -14,7 +14,7 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.RandomAccessFile;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 
@@ -23,8 +23,8 @@ public class FileIOService {
 
   public static final ObjectMapper mapper = new ObjectMapper();
 
-  public SegmentIndex persistConfig(final String segmentPath, final Map<String, Payload> memTable) {
-    final Map<String, SegmentMetadata> index = new HashMap<>();
+  public SegmentIndex persist(final String segmentPath, final Map<String, Payload> memTable) {
+    final Map<String, SegmentMetadata> index = new LinkedHashMap<>();
     File segment = new File(segmentPath);
     //TODO: 1. Figure out how to write memTable to file without iterating
     memTable.forEach((key, value) -> {
@@ -50,12 +50,8 @@ public class FileIOService {
   }
 
   public Optional<Payload> getPayload(final String path, final SegmentMetadata metadata) {
-    RandomAccessFile raf = null;
     try {
-      raf = new RandomAccessFile(path, "r");
-      raf.seek((long) metadata.getOffset());
-      byte[] in = new byte[metadata.getSize()];
-      raf.read(in, 0, metadata.getSize());
+      var in = readBytes(path, metadata);
       var obj = SerializationUtils.deserialize(in);
       var jsonStr = mapper.writeValueAsString(obj);
       return Optional.of(mapper.readValue(jsonStr, Payload.class));
@@ -63,6 +59,15 @@ public class FileIOService {
       e.printStackTrace();
       return Optional.empty();
     }
+  }
+
+  public byte[] readBytes(final String path, final SegmentMetadata metadata) throws IOException {
+    RandomAccessFile raf = null;
+    raf = new RandomAccessFile(path, "r");
+    raf.seek((long) metadata.getOffset());
+    byte[] in = new byte[metadata.getSize()];
+    raf.read(in, 0, metadata.getSize());
+    return in;
   }
 
   public Optional<SegmentConfig> getSegmentConfig(final String path) {
