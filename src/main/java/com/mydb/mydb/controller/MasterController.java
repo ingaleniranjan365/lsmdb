@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.io.IOException;
+import java.util.List;
 
 @RestController
 public class MasterController {
@@ -29,9 +30,8 @@ public class MasterController {
   }
 
   @GetMapping("/merge")
-  public ResponseEntity<String> merge() throws IOException {
-    lsmService.merge();
-    return ResponseEntity.ok("Segments merged!");
+  public ResponseEntity<List<Payload>> merge() throws IOException {
+    return ResponseEntity.ok(lsmService.merge());
   }
 
   @PostMapping("/persist")

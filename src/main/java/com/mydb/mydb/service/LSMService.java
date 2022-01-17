@@ -4,6 +4,7 @@ import com.mydb.mydb.Config;
 import com.mydb.mydb.entity.Element;
 import com.mydb.mydb.entity.Payload;
 import com.mydb.mydb.entity.SegmentIndex;
+import com.mydb.mydb.entity.SegmentMetadata;
 import com.mydb.mydb.exception.UnknownProbeException;
 import org.apache.commons.io.FileUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -12,11 +13,14 @@ import org.springframework.stereotype.Service;
 import java.io.File;
 import java.io.IOException;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.PriorityQueue;
 import java.util.TreeMap;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 @Service
@@ -45,8 +49,9 @@ public class LSMService {
     return payload;
   }
 
-  public void merge() throws IOException {
-    var mergedSegment = new File("/Users/niranjani/code/big-o/mydb/src/main/resources/segments/mergedSegment");
+  public List<Payload> merge() throws IOException {
+    var mergedSegment = new File("/Users/saileerenapurkar/Desktop/mydb/src/main/resources/segments/mergedSegment");
+    final Map<String , SegmentMetadata> mergedSegmentIndex = new LinkedHashMap<>();
     var heap = new PriorityQueue<Element>((e1, e2) -> {
       int probeComparison = e1.getProbeId().compareTo(e2.getProbeId());
       if (probeComparison == 0) {
@@ -69,12 +74,18 @@ public class LSMService {
           segmentService.getPathForSegment(segmentIndex.getSegmentName()),
           segmentIndex.getIndex().get(next.getProbeId())
       );
+      mergedSegmentIndex.put(next.getProbeId(),  new SegmentMetadata((int) (mergedSegment.length()), in.length));
       FileUtils.writeByteArrayToFile(mergedSegment, in, true);
       var iterator = iterators.get(next.getIndex());
       if (iterator.hasMoreElements()) {
         heap.add(new Element(iterator.nextElement(), next.getIndex()));
       }
     }
+
+    return mergedSegmentIndex.values().stream().map(v ->
+      fileIOService.getPayload(segmentService.getPathForSegment("mergedSegment"), v))
+        .filter(Optional::isPresent).map(Optional::get).collect(Collectors.toList());
+
   }
 
 
