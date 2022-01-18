@@ -57,7 +57,7 @@ public class LSMService {
   }
 
   public List<Payload> merge() throws IOException {
-    var mergedSegment = new File("/Users/niranjani/code/big-o/mydb/src/main/resources/segments/mergedSegment");
+    var mergedSegment = new File("/Users/saileerenapurkar/Desktop/mydb/src/main/resources/segments/mergedSegment");
     final Map<String , SegmentMetadata> mergedSegmentIndex = new LinkedHashMap<>();
     var heap = new PriorityQueue<Element>((e1, e2) -> {
       int probeComparison = e1.getProbeId().compareTo(e2.getProbeId());
@@ -92,14 +92,14 @@ public class LSMService {
     while (heap.size() > 0) {
       var next = heap.remove();
       while(next.getProbeId().equals(last.getProbeId())){
-        if(heap.isEmpty()) {
-          break;
-        }
-        next = heap.remove();
         var iterator = iterators.get(next.getIndex());
         if (iterator.hasMoreElements()) {
           heap.add(new Element(iterator.nextElement(), next.getIndex()));
         }
+        if(heap.isEmpty()) {
+          break;
+        }
+        next = heap.remove();
       }
       if(heap.isEmpty() && next.getProbeId().equals(last.getProbeId())) {
         break;
