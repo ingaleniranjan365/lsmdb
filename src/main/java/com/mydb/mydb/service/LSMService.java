@@ -1,7 +1,7 @@
 package com.mydb.mydb.service;
 
 import com.mydb.mydb.Config;
-import com.mydb.mydb.entity.Element;
+import com.mydb.mydb.entity.merge.HeapElement;
 import com.mydb.mydb.entity.Payload;
 import com.mydb.mydb.entity.SegmentIndex;
 import com.mydb.mydb.entity.SegmentMetadata;
@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import java.io.File;
 import java.io.IOException;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Enumeration;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
@@ -23,7 +24,9 @@ import java.util.Optional;
 import java.util.PriorityQueue;
 import java.util.TreeMap;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
+
+import static com.mydb.mydb.entity.merge.HeapElement.getHeapElementComparator;
+import static com.mydb.mydb.entity.merge.HeapElement.isProbeIdPresentInList;
 
 @Service
 public class LSMService {
@@ -31,13 +34,15 @@ public class LSMService {
   public static final long MAX_MEMTABLE_SIZE = 8;
   private final FileIOService fileIOService;
   private final SegmentService segmentService;
+  private final MergeService mergeService;
   private final List<SegmentIndex> indices;
   private Map<String, Payload> memTable = new TreeMap<>();
 
   @Autowired
-  public LSMService(FileIOService fileIOService, SegmentService segmentService) {
+  public LSMService(FileIOService fileIOService, SegmentService segmentService, MergeService mergeService) {
     this.fileIOService = fileIOService;
     this.segmentService = segmentService;
+    this.mergeService = mergeService;
     indices = new LinkedList<>();
   }
 
@@ -51,82 +56,11 @@ public class LSMService {
     return payload;
   }
 
-
-  private boolean isProbeIdPresentInList(final List<Element> elements, final String probeId) {
-      return elements.stream().anyMatch(e -> e.getProbeId().equals(probeId));
-  }
-
   public List<Payload> merge() throws IOException {
-    var mergedSegment = new File("/Users/saileerenapurkar/Desktop/mydb/src/main/resources/segments/mergedSegment");
-    final Map<String , SegmentMetadata> mergedSegmentIndex = new LinkedHashMap<>();
-    var heap = new PriorityQueue<Element>((e1, e2) -> {
-      int probeComparison = e1.getProbeId().compareTo(e2.getProbeId());
-      if (probeComparison == 0) {
-        return String.valueOf(e1.getIndex()).compareTo(String.valueOf(e2.getIndex()));
-      }
-      return probeComparison;
-    });
-    var iterators = indices.stream()
-        .map(index -> Collections.enumeration(index.getIndex().keySet())).toList();
-
-    var firstElements = new LinkedList<Element>();
-    int itr = 0;
-    while(itr < iterators.size()) {
-      var next = new Element(iterators.get(itr).nextElement(), itr);
-      while(isProbeIdPresentInList(firstElements, next.getProbeId())) {
-        if(iterators.get(itr).hasMoreElements()) {
-          next = new Element(iterators.get(itr).nextElement(), itr);
-        } else {
-          break;
-        }
-      }
-      if(!isProbeIdPresentInList(firstElements, next.getProbeId())) {
-        firstElements.add(next);
-      }
-      itr += 1;
-    }
-
-    heap.addAll(firstElements);
-
-    var last = new Element("", -1);
-    while (heap.size() > 0) {
-      var next = heap.remove();
-      while(next.getProbeId().equals(last.getProbeId())){
-        var iterator = iterators.get(next.getIndex());
-        if (iterator.hasMoreElements()) {
-          heap.add(new Element(iterator.nextElement(), next.getIndex()));
-        }
-        if(heap.isEmpty()) {
-          break;
-        }
-        next = heap.remove();
-      }
-      if(heap.isEmpty() && next.getProbeId().equals(last.getProbeId())) {
-        break;
-      }
-
-      var segmentIndex = indices.get(next.getIndex());
-      var in = fileIOService.readBytes(
-          segmentService.getPathForSegment(segmentIndex.getSegmentName()),
-          segmentIndex.getIndex().get(next.getProbeId())
-      );
-      mergedSegmentIndex.put(next.getProbeId(), new SegmentMetadata((int) (mergedSegment.length()), in.length));
-      FileUtils.writeByteArrayToFile(mergedSegment, in, true);
-
-      var iterator = iterators.get(next.getIndex());
-      if (iterator.hasMoreElements()) {
-        heap.add(new Element(iterator.nextElement(), next.getIndex()));
-      }
-
-      last = next;
-    }
-
-    return mergedSegmentIndex.values().stream().map(v ->
-      fileIOService.getPayload(segmentService.getPathForSegment("mergedSegment"), v))
-        .filter(Optional::isPresent).map(Optional::get).collect(Collectors.toList());
-
+    var segmentIndexEnumeration = indices.stream()
+        .map(index -> ImmutablePair.of(Collections.enumeration(index.getIndex().keySet()), index)).toList();
+    return mergeService.merge(segmentIndexEnumeration);
   }
-
 
   public Payload getData(String probeId) throws UnknownProbeException {
     System.out.println();
