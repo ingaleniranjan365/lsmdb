@@ -3,6 +3,7 @@ package com.mydb.mydb.controller;
 import com.mydb.mydb.entity.Payload;
 import com.mydb.mydb.exception.UnknownProbeException;
 import com.mydb.mydb.service.LSMService;
+import com.mydb.mydb.service.MergeService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -18,10 +19,12 @@ import java.util.List;
 public class MasterController {
 
   private LSMService lsmService;
+  private MergeService mergeService;
 
   @Autowired
-  public MasterController(LSMService lsmService) {
+  public MasterController(LSMService lsmService, MergeService mergeService) {
     this.lsmService = lsmService;
+    this.mergeService = mergeService;
   }
 
   @PostMapping("/echo")
@@ -31,7 +34,7 @@ public class MasterController {
 
   @GetMapping("/merge")
   public ResponseEntity<List<Payload>> merge() throws IOException {
-    return ResponseEntity.ok(lsmService.merge());
+    return ResponseEntity.ok(mergeService.merge());
   }
 
   @PostMapping("/persist")

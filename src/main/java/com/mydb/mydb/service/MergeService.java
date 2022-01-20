@@ -7,10 +7,12 @@ import com.mydb.mydb.entity.merge.HeapElement;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.Enumeration;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
@@ -28,16 +30,25 @@ public class MergeService {
 
   private final FileIOService fileIOService;
   private final SegmentService segmentService;
+  private final LSMService lsmService;
 
   @Autowired
-  public MergeService(FileIOService fileIOService, SegmentService segmentService) {
+  public MergeService(FileIOService fileIOService, SegmentService segmentService, LSMService lsmService) {
     this.fileIOService = fileIOService;
     this.segmentService = segmentService;
+    this.lsmService = lsmService;
+  }
+
+//  @Scheduled(fixedRate = 1000*60)
+  @Scheduled(cron = "0 */2 * * * *")
+  public List<Payload> merge() throws IOException {
+    var segmentIndexEnumeration = lsmService.getIndices().stream()
+        .map(index -> ImmutablePair.of(Collections.enumeration(index.getIndex().keySet()), index)).toList();
+    return merge(segmentIndexEnumeration);
   }
 
   public List<Payload> merge(final List<ImmutablePair<Enumeration<String>, SegmentIndex>> segmentIndexEnumeration) throws IOException {
-
-    var mergedSegment = new File("/Users/saileerenapurkar/Desktop/mydb/src/main/resources/segments/mergedSegment");
+    var mergedSegment = new File(segmentService.getNewSegmentPath());
     final Map<String , SegmentMetadata> mergedSegmentIndex = new LinkedHashMap<>();
     var heap = new PriorityQueue<>(getHeapElementComparator());
 
