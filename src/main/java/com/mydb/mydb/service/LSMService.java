@@ -1,16 +1,13 @@
 package com.mydb.mydb.service;
 
-import com.mydb.mydb.Config;
 import com.mydb.mydb.entity.Payload;
 import com.mydb.mydb.entity.SegmentIndex;
 import com.mydb.mydb.exception.UnknownProbeException;
 import lombok.Getter;
-import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
-import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -27,7 +24,7 @@ public class LSMService {
   private Map<String, Payload> memTable = new TreeMap<>();
 
   @Autowired
-  public LSMService(FileIOService fileIOService, SegmentService segmentService, MergeService mergeService) {
+  public LSMService(FileIOService fileIOService, SegmentService segmentService) {
     this.fileIOService = fileIOService;
     this.segmentService = segmentService;
     indices = new LinkedList<>();
@@ -37,7 +34,6 @@ public class LSMService {
     memTable.put(payload.getProbeId(), payload);
     if (memTable.size() == MAX_MEMTABLE_SIZE) {
       indices.add(0, fileIOService.persist(segmentService.getNewSegmentPath(), memTable));
-      fileIOService.persistConfig(Config.CONFIG_PATH, segmentService.getCurrentSegmentConfig());
       memTable = new TreeMap<>();
     }
     return payload;
