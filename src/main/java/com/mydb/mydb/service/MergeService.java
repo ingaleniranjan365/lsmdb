@@ -22,6 +22,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.PriorityQueue;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static com.mydb.mydb.entity.merge.HeapElement.getHeapElementComparator;
 import static com.mydb.mydb.entity.merge.HeapElement.isProbeIdPresentInList;
@@ -75,10 +76,25 @@ public class MergeService {
       addNextHeapElementForSegment(segmentIndexEnumeration, heap, candidate);
       last = candidate;
     }
+
+
+    deleteSegmentsAfterMerging(mergedSegmentIndex, mergedSegment);
     var data = readMergedFile(mergedSegmentIndex, mergedSegment.getAbsolutePath());
     var probeIds = data.stream().map(Payload::getProbeId).toList();
     log.info(probeIds.toString());
     return data;
+  }
+
+  private void deleteSegmentsAfterMerging(final Map<String, SegmentMetadata> mergedSegmentIndex, File mergedSegment) {
+    lsmService.getIndices().parallelStream().map(SegmentIndex::getSegmentName)
+        .map(segmentService::getPathForSegment).forEach(z -> new File(z).delete());
+
+    if(!mergedSegmentIndex.isEmpty()) {
+      String[] split = mergedSegment.getPath().split("/");
+      var newIndices = new LinkedList<SegmentIndex>();
+      newIndices.add(new SegmentIndex(split[split.length - 1], mergedSegmentIndex));
+      lsmService.setIndices(newIndices);
+    }
   }
 
   private List<Payload> readMergedFile(Map<String, SegmentMetadata> mergedSegmentIndex, final String path) {

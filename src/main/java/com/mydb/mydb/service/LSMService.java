@@ -3,7 +3,9 @@ package com.mydb.mydb.service;
 import com.mydb.mydb.entity.Payload;
 import com.mydb.mydb.entity.SegmentIndex;
 import com.mydb.mydb.exception.UnknownProbeException;
+import lombok.Data;
 import lombok.Getter;
+import lombok.Setter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -15,12 +17,14 @@ import java.util.TreeMap;
 
 @Service
 @Getter
+@Setter
 public class LSMService {
 
   public static final long MAX_MEMTABLE_SIZE = 8;
   private final FileIOService fileIOService;
   private final SegmentService segmentService;
-  private final List<SegmentIndex> indices;
+
+  private List<SegmentIndex> indices;
   private Map<String, Payload> memTable = new TreeMap<>();
 
   @Autowired
