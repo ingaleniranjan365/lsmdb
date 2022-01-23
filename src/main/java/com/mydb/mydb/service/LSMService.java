@@ -1,5 +1,6 @@
 package com.mydb.mydb.service;
 
+import com.mydb.mydb.entity.Index;
 import com.mydb.mydb.entity.Payload;
 import com.mydb.mydb.entity.SegmentIndex;
 import com.mydb.mydb.exception.UnknownProbeException;
@@ -30,16 +31,16 @@ public class LSMService {
   private final FileIOService fileIOService;
   private final SegmentService segmentService;
   private final MergeService mergeService;
-
-  private ConcurrentLinkedDeque<SegmentIndex> indices;
+  private Index index;
   private Map<String, Payload> memTable = new TreeMap<>();
 
   @Autowired
-  public LSMService(@Qualifier("indices") ConcurrentLinkedDeque<SegmentIndex> indices, FileIOService fileIOService, SegmentService segmentService, MergeService mergeService) {
+  public LSMService(@Qualifier("index") Index index, FileIOService fileIOService,
+                    SegmentService segmentService, MergeService mergeService) {
     this.fileIOService = fileIOService;
     this.segmentService = segmentService;
     this.mergeService = mergeService;
-    this.indices = indices;
+    this.index = index;
   }
 
   /**
@@ -50,37 +51,66 @@ public class LSMService {
   public void merge() throws IOException {
     log.info("**************\nStarting scheduled merging!\n******************");
     var mergeSegment = segmentService.getNewSegment();
-    var mergedSegmentIndex = mergeService.merge(getSegmentIndexEnumeration(), mergeSegment.getSegmentPath());
+    var segmentEnumeration = getSegmentIndexEnumeration();
+    var mergedSegmentIndex = mergeService.merge(segmentEnumeration, mergeSegment.getSegmentPath());
+
+    // 1. create a new merged segment & corresponding index
+    // 2. Persist new index
+    // 3. Add new index to indices
+    // 4. Delete old segments & old index
+
     if(!mergedSegmentIndex.isEmpty()) {
-      var newIndices = new ConcurrentLinkedDeque<SegmentIndex>();
-      newIndices.addFirst(new SegmentIndex(mergeSegment.getSegmentName(), mergedSegmentIndex));
-      persistIndices();
-      indices = newIndices;
+      var newIndex = new Index(null, new ConcurrentLinkedDeque<>());
+      newIndex.getIndices().addFirst(new SegmentIndex(mergeSegment.getSegmentName(), mergedSegmentIndex));
+      persistIndex(newIndex);
+      var oldIndex = index;
+      index = newIndex;
+      deleteSegmentsAfterMerging(segmentEnumeration, oldIndex);
     }
   }
 
+  private void deleteSegmentsAfterMerging(
+      final List<ImmutablePair<Enumeration<String>, SegmentIndex>> segmentIndexEnumeration,
+      Index oldIndex
+  ) {
+    segmentIndexEnumeration.parallelStream().map(x -> x.getRight().getSegmentName())
+        .map(segmentService::getPathForSegment).forEach(z -> new File(z).delete());
+    deleteOldIndex(oldIndex);
+  }
+
+  private void deleteOldIndex(Index oldIndex) {
+    if(oldIndex.getBackUpName()!=null) {
+      new File(segmentService.getPathForBackup(oldIndex.getBackUpName())).delete();
+    }
+  }
 
   public List<ImmutablePair<Enumeration<String>, SegmentIndex>> getSegmentIndexEnumeration() {
-    return indices.stream()
-        .map(index -> ImmutablePair.of(Collections.enumeration(index.getIndex().keySet()), index)).toList();
+    return index.getIndices().stream()
+        .map(index -> ImmutablePair.of(Collections.enumeration(index.getSegmentIndex().keySet()), index)).toList();
   }
 
   public Payload insert(final Payload payload) throws IOException {
     memTable.put(payload.getProbeId(), payload);
     if (memTable.size() == MAX_MEM_TABLE_SIZE) {
-      indices.addFirst(fileIOService.persist(segmentService.getNewSegment().getSegmentPath(), memTable));
-      persistIndices();
+      var newIndex = index.toBuilder().build();
+      newIndex.getIndices().addFirst(fileIOService.persist(segmentService.getNewSegment().getSegmentPath(), memTable));
+      persistIndex(newIndex);
+      var oldIndex = index;
+      index = newIndex;
+      deleteOldIndex(oldIndex);
       memTable = new TreeMap<>();
     }
     return payload;
   }
 
-  private void persistIndices() {
-    if (!indices.isEmpty()) {
-      var bytes = SerializationUtils.serialize(indices);
-      var indexFile = new File("/Users/saileerenapurkar/Desktop/mydb/src/main/resources/segments/indices/backup");
+  private void persistIndex(Index index) {
+    if (!index.getIndices().isEmpty()) {
       try {
+        var bytes = SerializationUtils.serialize(index);
+        var backup = segmentService.getNewBackup();
+        var indexFile = new File(backup.getBackupPath());
         FileUtils.writeByteArrayToFile(indexFile, bytes);
+        index.setBackUpName(backup.getBackupName());
       } catch (IOException ex) {
         throw new RuntimeException(ex.getMessage());
       }
@@ -105,10 +135,11 @@ public class LSMService {
 
   private Payload getDataFromSegments(final String probeId) {
 
-    var segmentIndex = indices.stream().filter(x -> x.getIndex().containsKey(probeId)).findFirst().orElse(null);
+    var segmentIndex =
+        index.getIndices().stream().filter(x -> x.getSegmentIndex().containsKey(probeId)).findFirst().orElse(null);
     return Optional.ofNullable(segmentIndex)
         .map(i -> segmentService.getPathForSegment(i.getSegmentName()))
-        .map(p -> fileIOService.getPayload(p, segmentIndex.getIndex().get(probeId)))
+        .map(p -> fileIOService.getPayload(p, segmentIndex.getSegmentIndex().get(probeId)))
         .filter(Optional::isPresent)
         .map(Optional::get)
         .orElse(null);

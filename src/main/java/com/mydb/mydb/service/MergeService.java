@@ -57,7 +57,7 @@ public class MergeService {
       var segmentIndex = segmentIndexEnumeration.get(candidate.getIndex()).right;
       var in = fileIOService.readBytes(
           segmentService.getPathForSegment(segmentIndex.getSegmentName()),
-          segmentIndex.getIndex().get(candidate.getProbeId())
+          segmentIndex.getSegmentIndex().get(candidate.getProbeId())
       );
       mergedSegmentIndex.put(candidate.getProbeId(), new SegmentMetadata((int) (mergeSegment.length()), in.length));
       FileUtils.writeByteArrayToFile(mergeSegment, in, true);
@@ -65,16 +65,7 @@ public class MergeService {
       addNextHeapElementForSegment(segmentIndexEnumeration, heap, candidate);
       last = candidate;
     }
-
-    deleteSegmentsAfterMerging(segmentIndexEnumeration);
     return mergedSegmentIndex;
-  }
-
-  private void deleteSegmentsAfterMerging(
-      final List<ImmutablePair<Enumeration<String>, SegmentIndex>> segmentIndexEnumeration
-  ) {
-    segmentIndexEnumeration.parallelStream().map(x -> x.getRight().getSegmentName())
-        .map(segmentService::getPathForSegment).forEach(z -> new File(z).delete());
   }
 
   private List<Payload> readMergedFile(Map<String, SegmentMetadata> mergedSegmentIndex, final String path) {

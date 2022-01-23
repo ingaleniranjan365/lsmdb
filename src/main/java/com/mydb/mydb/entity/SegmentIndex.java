@@ -5,8 +5,6 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.io.Serializable;
-import java.util.Collections;
-import java.util.Enumeration;
 import java.util.Map;
 
 @Data
@@ -18,5 +16,5 @@ public class SegmentIndex implements Serializable {
 
   private String segmentName;
 
-  private Map<String, SegmentMetadata> index;
+  private Map<String, SegmentMetadata> segmentIndex;
 }

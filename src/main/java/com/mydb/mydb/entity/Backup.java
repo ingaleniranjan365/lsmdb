@@ -1,4 +1,4 @@
-package com.mydb.mydb;
+package com.mydb.mydb.entity;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -7,8 +7,7 @@ import lombok.NoArgsConstructor;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class SegmentConfig {
-  private String basePath;
-  private int count;
-  private int backupCount;
+public class Backup {
+  private String backupName;
+  private String backupPath;
 }

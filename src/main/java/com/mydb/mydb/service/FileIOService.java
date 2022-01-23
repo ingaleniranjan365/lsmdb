@@ -3,6 +3,7 @@ package com.mydb.mydb.service;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mydb.mydb.SegmentConfig;
+import com.mydb.mydb.entity.Index;
 import com.mydb.mydb.entity.Payload;
 import com.mydb.mydb.entity.SegmentIndex;
 import com.mydb.mydb.entity.SegmentMetadata;
@@ -14,7 +15,6 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.RandomAccessFile;
-import java.lang.reflect.Type;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -82,15 +82,14 @@ public class FileIOService {
     }
   }
 
-  public Optional<ConcurrentLinkedDeque<SegmentIndex>> getIndices(String path){
-
+  public Optional<Index> getIndex(String path){
     try {
       File file = new File(path);
       var in = FileUtils.readFileToByteArray(file);
       var obj = SerializationUtils.deserialize(in);
       var jsonStr = mapper.writeValueAsString(obj);
-      var indices = mapper.readValue(jsonStr, new TypeReference<ConcurrentLinkedDeque<SegmentIndex>>() {});
-      return Optional.of(indices);
+      var index = mapper.readValue(jsonStr, Index.class);
+      return Optional.of(index);
     } catch (IOException e) {
       e.printStackTrace();
       return Optional.empty();
