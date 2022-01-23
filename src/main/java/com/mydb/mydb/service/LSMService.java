@@ -4,11 +4,15 @@ import com.mydb.mydb.entity.Payload;
 import com.mydb.mydb.entity.SegmentIndex;
 import com.mydb.mydb.exception.UnknownProbeException;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.util.SerializationUtils;
 
+import java.io.File;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.Enumeration;
@@ -31,11 +35,11 @@ public class LSMService {
   private Map<String, Payload> memTable = new TreeMap<>();
 
   @Autowired
-  public LSMService(FileIOService fileIOService, SegmentService segmentService, MergeService mergeService) {
+  public LSMService(@Qualifier("indices") ConcurrentLinkedDeque<SegmentIndex> indices, FileIOService fileIOService, SegmentService segmentService, MergeService mergeService) {
     this.fileIOService = fileIOService;
     this.segmentService = segmentService;
     this.mergeService = mergeService;
-    indices = new ConcurrentLinkedDeque<>();
+    this.indices = indices;
   }
 
   /**
@@ -50,6 +54,7 @@ public class LSMService {
     if(!mergedSegmentIndex.isEmpty()) {
       var newIndices = new ConcurrentLinkedDeque<SegmentIndex>();
       newIndices.addFirst(new SegmentIndex(mergeSegment.getSegmentName(), mergedSegmentIndex));
+      persistIndices();
       indices = newIndices;
     }
   }
@@ -64,9 +69,22 @@ public class LSMService {
     memTable.put(payload.getProbeId(), payload);
     if (memTable.size() == MAX_MEM_TABLE_SIZE) {
       indices.addFirst(fileIOService.persist(segmentService.getNewSegment().getSegmentPath(), memTable));
+      persistIndices();
       memTable = new TreeMap<>();
     }
     return payload;
+  }
+
+  private void persistIndices() {
+    if (!indices.isEmpty()) {
+      var bytes = SerializationUtils.serialize(indices);
+      var indexFile = new File("/Users/saileerenapurkar/Desktop/mydb/src/main/resources/segments/indices/backup");
+      try {
+        FileUtils.writeByteArrayToFile(indexFile, bytes);
+      } catch (IOException ex) {
+        throw new RuntimeException(ex.getMessage());
+      }
+    }
   }
 
 

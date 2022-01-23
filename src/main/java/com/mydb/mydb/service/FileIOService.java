@@ -14,9 +14,11 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.lang.reflect.Type;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentLinkedDeque;
 
 @Service
 public class FileIOService {
@@ -80,4 +82,18 @@ public class FileIOService {
     }
   }
 
+  public Optional<ConcurrentLinkedDeque<SegmentIndex>> getIndices(String path){
+
+    try {
+      File file = new File(path);
+      var in = FileUtils.readFileToByteArray(file);
+      var obj = SerializationUtils.deserialize(in);
+      var jsonStr = mapper.writeValueAsString(obj);
+      var indices = mapper.readValue(jsonStr, new TypeReference<ConcurrentLinkedDeque<SegmentIndex>>() {});
+      return Optional.of(indices);
+    } catch (IOException e) {
+      e.printStackTrace();
+      return Optional.empty();
+    }
+  }
 }
