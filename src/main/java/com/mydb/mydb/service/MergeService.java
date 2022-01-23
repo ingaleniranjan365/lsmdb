@@ -8,12 +8,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Collections;
 import java.util.Enumeration;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
@@ -22,7 +20,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.PriorityQueue;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 import static com.mydb.mydb.entity.merge.HeapElement.getHeapElementComparator;
 import static com.mydb.mydb.entity.merge.HeapElement.isProbeIdPresentInList;
@@ -33,27 +30,19 @@ public class MergeService {
 
   private final FileIOService fileIOService;
   private final SegmentService segmentService;
-  private final LSMService lsmService;
-
 
   @Autowired
-  public MergeService(FileIOService fileIOService, SegmentService segmentService, LSMService lsmService) {
+  public MergeService(FileIOService fileIOService, SegmentService segmentService) {
     this.fileIOService = fileIOService;
     this.segmentService = segmentService;
-    this.lsmService = lsmService;
   }
 
-  @Scheduled(fixedRate = 10000)
-  public List<Payload> merge() throws IOException {
-    log.info("**************\nStarting scheduled merging!\n******************");
-    var segmentIndexEnumeration = lsmService.getIndices().stream()
-        .map(index -> ImmutablePair.of(Collections.enumeration(index.getIndex().keySet()), index)).toList();
-    return merge(segmentIndexEnumeration);
-  }
-
-  public List<Payload> merge(final List<ImmutablePair<Enumeration<String>, SegmentIndex>> segmentIndexEnumeration)
+  public Map<String, SegmentMetadata> merge(
+      final List<ImmutablePair<Enumeration<String>, SegmentIndex>> segmentIndexEnumeration,
+      final String mergeSegmentPath
+  )
       throws IOException {
-    var mergedSegment = new File(segmentService.getNewSegmentPath());
+    var mergeSegment = new File(mergeSegmentPath);
     final Map<String, SegmentMetadata> mergedSegmentIndex = new LinkedHashMap<>();
     var heap = new PriorityQueue<>(getHeapElementComparator());
 
@@ -70,31 +59,22 @@ public class MergeService {
           segmentService.getPathForSegment(segmentIndex.getSegmentName()),
           segmentIndex.getIndex().get(candidate.getProbeId())
       );
-      mergedSegmentIndex.put(candidate.getProbeId(), new SegmentMetadata((int) (mergedSegment.length()), in.length));
-      FileUtils.writeByteArrayToFile(mergedSegment, in, true);
+      mergedSegmentIndex.put(candidate.getProbeId(), new SegmentMetadata((int) (mergeSegment.length()), in.length));
+      FileUtils.writeByteArrayToFile(mergeSegment, in, true);
 
       addNextHeapElementForSegment(segmentIndexEnumeration, heap, candidate);
       last = candidate;
     }
 
-
-    deleteSegmentsAfterMerging(mergedSegmentIndex, mergedSegment);
-    var data = readMergedFile(mergedSegmentIndex, mergedSegment.getAbsolutePath());
-    var probeIds = data.stream().map(Payload::getProbeId).toList();
-    log.info(probeIds.toString());
-    return data;
+    deleteSegmentsAfterMerging(segmentIndexEnumeration);
+    return mergedSegmentIndex;
   }
 
-  private void deleteSegmentsAfterMerging(final Map<String, SegmentMetadata> mergedSegmentIndex, File mergedSegment) {
-    lsmService.getIndices().parallelStream().map(SegmentIndex::getSegmentName)
+  private void deleteSegmentsAfterMerging(
+      final List<ImmutablePair<Enumeration<String>, SegmentIndex>> segmentIndexEnumeration
+  ) {
+    segmentIndexEnumeration.parallelStream().map(x -> x.getRight().getSegmentName())
         .map(segmentService::getPathForSegment).forEach(z -> new File(z).delete());
-
-    if(!mergedSegmentIndex.isEmpty()) {
-      String[] split = mergedSegment.getPath().split("/");
-      var newIndices = new LinkedList<SegmentIndex>();
-      newIndices.add(new SegmentIndex(split[split.length - 1], mergedSegmentIndex));
-      lsmService.setIndices(newIndices);
-    }
   }
 
   private List<Payload> readMergedFile(Map<String, SegmentMetadata> mergedSegmentIndex, final String path) {

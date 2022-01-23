@@ -32,11 +32,6 @@ public class MasterController {
     return ResponseEntity.ok(payload);
   }
 
-  @GetMapping("/merge")
-  public ResponseEntity<List<Payload>> merge() throws IOException {
-    return ResponseEntity.ok(mergeService.merge());
-  }
-
   @PostMapping("/persist")
   public ResponseEntity<Payload> persistPayload(final @RequestBody Payload payload) throws IOException {
     return ResponseEntity.ok(lsmService.insert(payload));

@@ -2,6 +2,7 @@ package com.mydb.mydb.service;
 
 import com.mydb.mydb.Config;
 import com.mydb.mydb.SegmentConfig;
+import com.mydb.mydb.entity.Segment;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
@@ -14,7 +15,7 @@ public class SegmentService {
   private final SegmentConfig segmentConfig;
   private final FileIOService fileIOService;
 
-  public SegmentConfig getCurrentSegmentConfig() {
+  private SegmentConfig getCurrentSegmentConfig() {
     return new SegmentConfig(segmentConfig.getBasePath(), segmentConfig.getCount());
   }
 
@@ -24,15 +25,17 @@ public class SegmentService {
       this.fileIOService = fileIOService;
   }
 
-  public String getNewSegmentPath() throws IOException {
-    var nextPath = getPathForSegment(segmentConfig.getCount());
-    segmentConfig.setCount(segmentConfig.getCount() + 1);
+  public Segment getNewSegment() throws IOException {
+    var newCount = segmentConfig.getCount() + 1;
+    var newSegmentName = getNewSegmentName(newCount);
+    var newSegmentPath = getPathForSegment(newSegmentName);
+    segmentConfig.setCount(newCount);
     fileIOService.persistConfig(Config.CONFIG_PATH, getCurrentSegmentConfig());
-    return nextPath;
+    return new Segment(newSegmentName, newSegmentPath);
   }
 
-  private String getPathForSegment(Integer i) {
-    return segmentConfig.getBasePath() + String.format("/segment-%d", i);
+  private String getNewSegmentName(int i) {
+    return String.format("segment-%d", i);
   }
 
   public String getPathForSegment(String segmentName) {
