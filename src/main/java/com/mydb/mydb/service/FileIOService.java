@@ -1,5 +1,6 @@
 package com.mydb.mydb.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mydb.mydb.SegmentConfig;
@@ -24,6 +25,7 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 public class FileIOService {
 
   public static final ObjectMapper mapper = new ObjectMapper();
+
 
   public SegmentIndex persist(final String segmentPath, final Map<String, Payload> memTable) {
     final Map<String, SegmentMetadata> index = new LinkedHashMap<>();
