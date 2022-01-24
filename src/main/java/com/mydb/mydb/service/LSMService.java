@@ -33,15 +33,18 @@ public class LSMService {
   private final SegmentService segmentService;
   private final MergeService mergeService;
   private Index index;
-  private Map<String, Payload> memTable = new TreeMap<>();
+  private Map<String, Payload> memTable;
 
   @Autowired
-  public LSMService(@Qualifier("index") Index index, FileIOService fileIOService,
-                    SegmentService segmentService, MergeService mergeService) {
+  public LSMService(@Qualifier("memTable") Map<String, Payload> memTable,
+      @Qualifier("index") Index index, FileIOService fileIOService,
+                    SegmentService segmentService, MergeService mergeService
+  ) {
     this.fileIOService = fileIOService;
     this.segmentService = segmentService;
     this.mergeService = mergeService;
     this.index = index;
+    this.memTable = memTable;
   }
 
   /**
@@ -106,14 +109,16 @@ public class LSMService {
   }
 
   private void writeAppendLog(Payload payload) {
-    File file =  new File("/Users/saileerenapurkar/Desktop/mydb/src/main/resources/segments/wal/wal");
+    File file =  new File("/Users/niranjani/code/big-o/mydb/src/main/resources/segments/wal/wal");
     var fixedBytes = new byte[MAX_PAYLOAD_SIZE];
     var bytes =  SerializationUtils.serialize(payload);
-    System.arraycopy(bytes, 0, fixedBytes, 0, bytes.length);
-    try {
-      FileUtils.writeByteArrayToFile(file, fixedBytes, true);
-    } catch (IOException e) {
-      e.printStackTrace();
+    if(bytes!=null && bytes.length > 0) {
+      System.arraycopy(bytes, 0, fixedBytes, 0, bytes.length);
+      try {
+        FileUtils.writeByteArrayToFile(file, fixedBytes, true);
+      } catch (IOException e) {
+        e.printStackTrace();
+      }
     }
   }
 
