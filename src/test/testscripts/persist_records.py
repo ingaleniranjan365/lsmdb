@@ -69,8 +69,8 @@ seg_3_probe_suffixes = ['01', '02', '10', '13', '14', '15', '16', '20']
 
 probe_id_suffixes = []
 probe_id_suffixes.extend(seg_1_probe_suffixes)
-# probe_id_suffixes.extend(seg_2_probe_suffixes)
-# probe_id_suffixes.extend(seg_3_probe_suffixes)
+probe_id_suffixes.extend(seg_2_probe_suffixes)
+probe_id_suffixes.extend(seg_3_probe_suffixes)
 
 if __name__ == '__main__':
     for suffix in probe_id_suffixes:

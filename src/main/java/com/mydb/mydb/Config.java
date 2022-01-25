@@ -13,11 +13,13 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.util.SerializationUtils;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.function.IntFunction;
 import java.util.stream.IntStream;
 
 @Configuration
@@ -58,31 +60,59 @@ public class Config {
     return new Index(null, new ConcurrentLinkedDeque<>());
   }
 
+  // TODO: test that failure/exception to deserialize a payload does not fail the whole file processing
   @Bean("memTable")
   public Map<String, Payload> fromWAL() {
     var memTable = new TreeMap<String, Payload>();
     try {
       var walFile = new File(DEFAULT_WAL_FILE_PATH);
-      var wal = FileUtils.readFileToByteArray(walFile);
-      IntStream.range(0, wal.length/LSMService.MAX_PAYLOAD_SIZE)
-          .map(i -> i*LSMService.MAX_PAYLOAD_SIZE)
-          .mapToObj(start -> SerializationUtils.deserialize(Arrays.copyOfRange(wal, start,
-              start + LSMService.MAX_PAYLOAD_SIZE)))
-          .map(this::getJsonStr)
-          .forEach(jsonStr -> extractPayload(memTable, jsonStr));
-      walFile.delete();
-    } catch (IOException e) {
-      e.printStackTrace();
+      if(walFile.exists()) {
+        byte[] wal = null;
+
+        try {
+          wal = FileUtils.readFileToByteArray(walFile);
+        } catch (IOException | NullPointerException e) {
+          e.printStackTrace();
+        }
+
+        if(wal!=null) {
+          byte[] finalWal = wal;
+          IntStream.range(0, finalWal.length/LSMService.MAX_PAYLOAD_SIZE)
+              .map(i -> i*LSMService.MAX_PAYLOAD_SIZE)
+              .mapToObj(i -> deserialize(finalWal, i))
+              .map(this::getJsonStr)
+              .forEach(jsonStr -> extractPayload(memTable, jsonStr));
+        }
+
+        try {
+          walFile.delete();
+        } catch (SecurityException ex) {
+          ex.printStackTrace();
+        }
+
+      }
+    } catch (RuntimeException ex) {
+      ex.printStackTrace();
     }
     return memTable;
   }
+
+  private Object deserialize(byte[] finalWal, int i) {
+    try {
+      return SerializationUtils.deserialize(Arrays.copyOfRange(finalWal, i, i + LSMService.MAX_PAYLOAD_SIZE));
+    } catch (IllegalArgumentException | IllegalStateException ex) {
+      ex.printStackTrace();
+      return null;
+    }
+  }
+
 
   private void extractPayload(TreeMap<String, Payload> memTable, String jsonStr) {
     if(jsonStr !=null) {
       try {
         var payload = mapper.readValue(jsonStr, Payload.class);
         memTable.put(payload.getProbeId(), payload);
-      } catch (JsonProcessingException e) {
+      } catch (JsonProcessingException | RuntimeException e) {
         e.printStackTrace();
       }
     }
@@ -91,7 +121,7 @@ public class Config {
   private String getJsonStr(Object obj) {
     try {
       return mapper.writeValueAsString(obj);
-    } catch (JsonProcessingException e) {
+    } catch (IOException | RuntimeException e) {
       e.printStackTrace();
       return null;
     }

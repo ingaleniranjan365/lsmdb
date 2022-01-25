@@ -1,8 +1,10 @@
 package com.mydb.mydb.service;
 
+import com.mydb.mydb.Config;
 import com.mydb.mydb.entity.Index;
 import com.mydb.mydb.entity.Payload;
 import com.mydb.mydb.entity.SegmentIndex;
+import com.mydb.mydb.exception.PayloadTooLargeException;
 import com.mydb.mydb.exception.UnknownProbeException;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
@@ -28,7 +30,7 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 public class LSMService {
 
   public static final long MAX_MEM_TABLE_SIZE = 8;
-  public static final int MAX_PAYLOAD_SIZE = 25000;
+  public static final int MAX_PAYLOAD_SIZE = 20000;
   private final FileIOService fileIOService;
   private final SegmentService segmentService;
   private final MergeService mergeService;
@@ -93,7 +95,7 @@ public class LSMService {
         .map(index -> ImmutablePair.of(Collections.enumeration(index.getSegmentIndex().keySet()), index)).toList();
   }
 
-  public Payload insert(final Payload payload) throws IOException {
+  public Payload insert(final Payload payload) throws IOException, PayloadTooLargeException {
     writeAppendLog(payload);
     memTable.put(payload.getProbeId(), payload);
     if (memTable.size() == MAX_MEM_TABLE_SIZE) {
@@ -108,11 +110,15 @@ public class LSMService {
     return payload;
   }
 
-  private void writeAppendLog(Payload payload) {
-    File file =  new File("/Users/niranjani/code/big-o/mydb/src/main/resources/segments/wal/wal");
+  private void writeAppendLog(Payload payload) throws PayloadTooLargeException {
+    File file =  new File(Config.DEFAULT_WAL_FILE_PATH);
     var fixedBytes = new byte[MAX_PAYLOAD_SIZE];
     var bytes =  SerializationUtils.serialize(payload);
     if(bytes!=null && bytes.length > 0) {
+      if(bytes.length > MAX_PAYLOAD_SIZE) {
+        throw new PayloadTooLargeException(String.format("System supports max payload of size: %d, received: %d",
+            MAX_PAYLOAD_SIZE, bytes.length));
+      }
       System.arraycopy(bytes, 0, fixedBytes, 0, bytes.length);
       try {
         FileUtils.writeByteArrayToFile(file, fixedBytes, true);

@@ -1,6 +1,7 @@
 package com.mydb.mydb.controller;
 
 import com.mydb.mydb.entity.Payload;
+import com.mydb.mydb.exception.PayloadTooLargeException;
 import com.mydb.mydb.exception.UnknownProbeException;
 import com.mydb.mydb.service.LSMService;
 import com.mydb.mydb.service.MergeService;
@@ -33,7 +34,8 @@ public class MasterController {
   }
 
   @PostMapping("/persist")
-  public ResponseEntity<Payload> persistPayload(final @RequestBody Payload payload) throws IOException {
+  public ResponseEntity<Payload> persistPayload(final @RequestBody Payload payload) throws IOException,
+      PayloadTooLargeException {
     return ResponseEntity.ok(lsmService.insert(payload));
   }
 
