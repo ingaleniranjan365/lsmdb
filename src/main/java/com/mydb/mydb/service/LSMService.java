@@ -100,7 +100,7 @@ public class LSMService {
     memTable.put(payload.getProbeId(), payload);
     if (memTable.size() == MAX_MEM_TABLE_SIZE) {
       var newIndex = index.toBuilder().build();
-      newIndex.getIndices().addFirst(fileIOService.persist(segmentService.getNewSegment().getSegmentPath(), memTable));
+      newIndex.getIndices().addFirst(fileIOService.persist(segmentService.getNewSegment(), memTable));
       persistIndex(newIndex);
       var oldIndex = index;
       index = newIndex;
@@ -116,8 +116,7 @@ public class LSMService {
     var bytes =  SerializationUtils.serialize(payload);
     if(bytes!=null && bytes.length > 0) {
       if(bytes.length > MAX_PAYLOAD_SIZE) {
-        throw new PayloadTooLargeException(String.format("System supports max payload of size: %d, received: %d",
-            MAX_PAYLOAD_SIZE, bytes.length));
+        throw new PayloadTooLargeException();
       }
       System.arraycopy(bytes, 0, fixedBytes, 0, bytes.length);
       try {

@@ -1,11 +1,11 @@
 package com.mydb.mydb.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mydb.mydb.SegmentConfig;
 import com.mydb.mydb.entity.Index;
 import com.mydb.mydb.entity.Payload;
+import com.mydb.mydb.entity.Segment;
 import com.mydb.mydb.entity.SegmentIndex;
 import com.mydb.mydb.entity.SegmentMetadata;
 import org.apache.commons.io.FileUtils;
@@ -19,7 +19,6 @@ import java.io.RandomAccessFile;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentLinkedDeque;
 
 @Service
 public class FileIOService {
@@ -27,30 +26,31 @@ public class FileIOService {
   public static final ObjectMapper mapper = new ObjectMapper();
 
 
-  public SegmentIndex persist(final String segmentPath, final Map<String, Payload> memTable) {
+  public SegmentIndex persist(final Segment segment, final Map<String, Payload> memTable) {
     final Map<String, SegmentMetadata> index = new LinkedHashMap<>();
-    File segment = new File(segmentPath);
-    //TODO: 1. Figure out how to write memTable to file without iterating
+    File segmentFile = new File(segment.getSegmentPath());
     memTable.forEach((key, value) -> {
-      var bytes = SerializationUtils.serialize(value);
-      index.put(key, new SegmentMetadata((int) (segment.length()), bytes.length));
       try {
-        FileUtils.writeByteArrayToFile(segment, bytes, true);
-      } catch (IOException ex) {
-        throw new RuntimeException(ex.getMessage());
+      var bytes = SerializationUtils.serialize(value);
+      index.put(key, new SegmentMetadata((int) (segmentFile.length()), bytes.length));
+      FileUtils.writeByteArrayToFile(segmentFile, bytes, true);
+      } catch (RuntimeException | IOException ex) {
+        ex.printStackTrace();
       }
     });
-    var pathSplit =  segmentPath.split("/");
-    var segmentName =  pathSplit [pathSplit.length - 1];
 
-    return new SegmentIndex(segmentName, index);
+    return new SegmentIndex(segment.getSegmentName(), index);
   }
 
-  public void persistConfig(final String configPath, final SegmentConfig config) throws IOException {
-    var json = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(config);
-    FileOutputStream outputStream = new FileOutputStream(configPath);
-    outputStream.write(json.getBytes());
-    outputStream.close();
+  public void persistConfig(final String configPath, final SegmentConfig config)  {
+    try {
+      var json = mapper.writeValueAsString(config);
+      FileOutputStream outputStream = new FileOutputStream(configPath);
+      outputStream.write(json.getBytes());
+      outputStream.close();
+    } catch (IOException exception) {
+      exception.printStackTrace();
+    }
   }
 
   public Optional<Payload> getPayload(final String path, final SegmentMetadata metadata) {
