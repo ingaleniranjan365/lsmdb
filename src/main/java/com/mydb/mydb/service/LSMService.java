@@ -24,6 +24,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.stream.IntStream;
 
 @Slf4j
 @Service
@@ -57,20 +58,14 @@ public class LSMService {
   public void merge() throws IOException {
     log.info("**************\nStarting scheduled merging!\n******************");
     var mergeSegment = segmentService.getNewSegment();
+    int size = index.getIndices().size();
     var segmentEnumeration = getSegmentIndexEnumeration();
     var mergedSegmentIndex = mergeService.merge(segmentEnumeration, mergeSegment.getSegmentPath());
-
-    // 1. create a new merged segment & corresponding index
-    // 2. Persist new index
-    // 3. Add new index to indices
-    // 4. Delete old segments & old index
-
     if(!mergedSegmentIndex.isEmpty()) {
-      var newIndex = new Index(null, new ConcurrentLinkedDeque<>());
-      newIndex.getIndices().addFirst(new SegmentIndex(mergeSegment.getSegmentName(), mergedSegmentIndex));
-      persistIndex(newIndex);
       var oldIndex = index;
-      index = newIndex;
+      IntStream.range(0, size).forEach(x -> index.getIndices().removeLast());
+      index.getIndices().addLast(new SegmentIndex(mergeSegment.getSegmentName(), mergedSegmentIndex));
+      persistIndex(index);
       deleteSegmentsAfterMerging(segmentEnumeration, oldIndex);
     }
   }
@@ -106,9 +101,21 @@ public class LSMService {
       var oldIndex = index;
       index = newIndex;
       deleteOldIndex(oldIndex);
-      memTable = new TreeMap<>();
+      resetMemtableAndWAL();
     }
     return payload;
+  }
+
+  private void resetMemtableAndWAL() {
+    memTable = new TreeMap<>();
+    clearWriteAppendLog();
+  }
+
+  private void clearWriteAppendLog() {
+    File file =  new File(Config.DEFAULT_WAL_FILE_PATH);
+    if(file.exists()) {
+      file.delete();
+    }
   }
 
   private void writeAppendLog(Payload payload) throws PayloadTooLargeException {
