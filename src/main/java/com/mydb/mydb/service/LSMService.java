@@ -92,13 +92,14 @@ public class LSMService {
 
   public List<ImmutablePair<Enumeration<String>, SegmentIndex>> getSegmentIndexEnumeration() {
     return index.getIndices().stream()
+        .filter(i -> new File(segmentService.getPathForSegment(i.getSegmentName())).exists())
         .map(index -> ImmutablePair.of(Collections.enumeration(index.getSegmentIndex().keySet()), index)).toList();
   }
 
   public Payload insert(final Payload payload) throws IOException, PayloadTooLargeException {
     writeAppendLog(payload);
     memTable.put(payload.getProbeId(), payload);
-    if (memTable.size() == MAX_MEM_TABLE_SIZE) {
+    if (memTable.size() >= MAX_MEM_TABLE_SIZE) {
       var newIndex = index.toBuilder().build();
       newIndex.getIndices().addFirst(fileIOService.persist(segmentService.getNewSegment(), memTable));
       persistIndex(newIndex);

@@ -69,7 +69,8 @@ public class MergeService {
   }
 
   private List<Payload> readMergedFile(Map<String, SegmentMetadata> mergedSegmentIndex, final String path) {
-    return mergedSegmentIndex.values().stream().map(v ->
+    return mergedSegmentIndex.values().stream()
+        .map(v ->
             fileIOService.getPayload(path, v))
         .filter(Optional::isPresent).map(Optional::get).collect(Collectors.toList());
   }
