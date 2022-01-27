@@ -38,7 +38,7 @@ public class MergeService {
   }
 
   public Map<String, SegmentMetadata> merge(
-      final List<ImmutablePair<Enumeration<String>, SegmentIndex>> segmentIndexEnumeration,
+      List<ImmutablePair<Enumeration<String>, SegmentIndex>> segmentIndexEnumeration,
       final String mergeSegmentPath
   )
       throws IOException {

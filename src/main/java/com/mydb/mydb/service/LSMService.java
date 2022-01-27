@@ -1,7 +1,6 @@
 package com.mydb.mydb.service;
 
 import com.mydb.mydb.Config;
-import com.mydb.mydb.entity.Index;
 import com.mydb.mydb.entity.Payload;
 import com.mydb.mydb.entity.SegmentIndex;
 import com.mydb.mydb.exception.PayloadTooLargeException;
@@ -35,95 +34,95 @@ public class LSMService {
   private final FileIOService fileIOService;
   private final SegmentService segmentService;
   private final MergeService mergeService;
-  private Index index;
+  private ConcurrentLinkedDeque<SegmentIndex> indices;
   private Map<String, Payload> memTable;
 
   @Autowired
   public LSMService(@Qualifier("memTable") Map<String, Payload> memTable,
-      @Qualifier("index") Index index, FileIOService fileIOService,
+                    @Qualifier("indices") ConcurrentLinkedDeque<SegmentIndex> indices, FileIOService fileIOService,
                     SegmentService segmentService, MergeService mergeService
   ) {
     this.fileIOService = fileIOService;
     this.segmentService = segmentService;
     this.mergeService = mergeService;
-    this.index = index;
+    this.indices = indices;
     this.memTable = memTable;
   }
 
-  /**
-   * TODO: 1. Make sure indices.add is executed thread safe
-   *       2. Make sure indices is thread safe object.
-   */
-  @Scheduled(fixedRate = 10000)
+  @Scheduled(initialDelay = 20000, fixedDelay=10000)
   public void merge() throws IOException {
     log.info("**************\nStarting scheduled merging!\n******************");
+
     var mergeSegment = segmentService.getNewSegment();
-    int size = index.getIndices().size();
+
+    var oldBackupPath = segmentService.getCurrentBackupPath();
     var segmentEnumeration = getSegmentIndexEnumeration();
+    var segmentIndexCountToBeRemoved = segmentEnumeration.size();
+    segmentEnumeration = segmentEnumeration.stream()
+        .filter(i -> new File(segmentService.getPathForSegment(i.getRight().getSegmentName())).exists()).toList();
     var mergedSegmentIndex = mergeService.merge(segmentEnumeration, mergeSegment.getSegmentPath());
-    if(!mergedSegmentIndex.isEmpty()) {
-      var oldIndex = index;
-      IntStream.range(0, size).forEach(x -> index.getIndices().removeLast());
-      index.getIndices().addLast(new SegmentIndex(mergeSegment.getSegmentName(), mergedSegmentIndex));
-      persistIndex(index);
-      deleteSegmentsAfterMerging(segmentEnumeration, oldIndex);
-    }
+    IntStream.range(0, segmentIndexCountToBeRemoved).forEach(x -> indices.removeLast());
+    indices.addLast(new SegmentIndex(mergeSegment.getSegmentName(), mergedSegmentIndex));
+
+    persistIndices();
+    deleteMergedSegmentsAndOldIndexBackup(segmentEnumeration, oldBackupPath);
   }
 
-  private void deleteSegmentsAfterMerging(
+  private void deleteMergedSegmentsAndOldIndexBackup(
       final List<ImmutablePair<Enumeration<String>, SegmentIndex>> segmentIndexEnumeration,
-      Index oldIndex
+      final String oldBackupPath
   ) {
     segmentIndexEnumeration.parallelStream().map(x -> x.getRight().getSegmentName())
         .map(segmentService::getPathForSegment).forEach(z -> new File(z).delete());
-    deleteOldIndex(oldIndex);
+    deleteOldIndexBackup(oldBackupPath);
   }
 
-  private void deleteOldIndex(Index oldIndex) {
-    if(oldIndex.getBackUpName()!=null) {
-      new File(segmentService.getPathForBackup(oldIndex.getBackUpName())).delete();
+  private synchronized void deleteOldIndexBackup(final String oldBackupPath) {
+    try {
+      new File(oldBackupPath).delete();
+    } catch (RuntimeException ex) {
+      ex.printStackTrace();
     }
   }
 
   public List<ImmutablePair<Enumeration<String>, SegmentIndex>> getSegmentIndexEnumeration() {
-    return index.getIndices().stream()
-        .filter(i -> new File(segmentService.getPathForSegment(i.getSegmentName())).exists())
-        .map(index -> ImmutablePair.of(Collections.enumeration(index.getSegmentIndex().keySet()), index)).toList();
+    return indices.stream()
+        .map(j -> ImmutablePair.of(Collections.enumeration(j.getSegmentIndex().keySet()), j)).toList();
   }
 
-  public Payload insert(final Payload payload) throws IOException, PayloadTooLargeException {
+  public synchronized Payload insert(final Payload payload) throws IOException, PayloadTooLargeException {
     writeAppendLog(payload);
     memTable.put(payload.getProbeId(), payload);
     if (memTable.size() >= MAX_MEM_TABLE_SIZE) {
-      var newIndex = index.toBuilder().build();
-      newIndex.getIndices().addFirst(fileIOService.persist(segmentService.getNewSegment(), memTable));
-      persistIndex(newIndex);
-      var oldIndex = index;
-      index = newIndex;
-      deleteOldIndex(oldIndex);
-      resetMemtableAndWAL();
+      // TODO: Pass this code block to a singe thread executor
+      var mergedSegmentIndex = fileIOService.persist(segmentService.getNewSegment(), memTable);
+      if (!mergedSegmentIndex.getSegmentIndex().isEmpty()) {
+        indices.addFirst(mergedSegmentIndex);
+        var oldBackupPath = segmentService.getCurrentBackupPath();
+        persistIndices();
+        deleteOldIndexBackup(oldBackupPath);
+        resetMemTableAndWAL();
+      }
     }
     return payload;
   }
 
-  private void resetMemtableAndWAL() {
+  private void resetMemTableAndWAL() {
     memTable = new TreeMap<>();
     clearWriteAppendLog();
   }
 
   private void clearWriteAppendLog() {
-    File file =  new File(Config.DEFAULT_WAL_FILE_PATH);
-    if(file.exists()) {
-      file.delete();
-    }
+    File file = new File(Config.DEFAULT_WAL_FILE_PATH);
+    file.delete();
   }
 
   private void writeAppendLog(Payload payload) throws PayloadTooLargeException {
-    File file =  new File(Config.DEFAULT_WAL_FILE_PATH);
+    File file = new File(Config.DEFAULT_WAL_FILE_PATH);
     var fixedBytes = new byte[MAX_PAYLOAD_SIZE];
-    var bytes =  SerializationUtils.serialize(payload);
-    if(bytes!=null && bytes.length > 0) {
-      if(bytes.length > MAX_PAYLOAD_SIZE) {
+    var bytes = SerializationUtils.serialize(payload);
+    if (bytes != null && bytes.length > 0) {
+      if (bytes.length > MAX_PAYLOAD_SIZE) {
         throw new PayloadTooLargeException();
       }
       System.arraycopy(bytes, 0, fixedBytes, 0, bytes.length);
@@ -135,24 +134,20 @@ public class LSMService {
     }
   }
 
-  private void persistIndex(Index index) {
-    if (!index.getIndices().isEmpty()) {
-      try {
-        var bytes = SerializationUtils.serialize(index);
-        var backup = segmentService.getNewBackup();
-        var indexFile = new File(backup.getBackupPath());
-        FileUtils.writeByteArrayToFile(indexFile, bytes);
-        index.setBackUpName(backup.getBackupName());
-      } catch (IOException ex) {
-        throw new RuntimeException(ex.getMessage());
-      }
+  public synchronized void persistIndices() {
+    try {
+      var bytes = SerializationUtils.serialize(indices);
+      var backup = segmentService.getNewBackup();
+      var indexFile = new File(backup.getBackupPath());
+      FileUtils.writeByteArrayToFile(indexFile, bytes);
+      segmentService.setBackupCount(segmentService.getBackupCount() + 1);
+    } catch (IOException | RuntimeException ex) {
+      ex.printStackTrace();
     }
   }
 
-
   public Payload getData(String probeId) throws UnknownProbeException {
     System.out.println();
-
 
     var data = memTable.getOrDefault(probeId, null);
     if (data == null) {
@@ -167,8 +162,7 @@ public class LSMService {
 
   private Payload getDataFromSegments(final String probeId) {
 
-    var segmentIndex =
-        index.getIndices().stream().filter(x -> x.getSegmentIndex().containsKey(probeId)).findFirst().orElse(null);
+    var segmentIndex = indices.stream().filter(x -> x.getSegmentIndex().containsKey(probeId)).findFirst().orElse(null);
     return Optional.ofNullable(segmentIndex)
         .map(i -> segmentService.getPathForSegment(i.getSegmentName()))
         .map(p -> fileIOService.getPayload(p, segmentIndex.getSegmentIndex().get(probeId)))
