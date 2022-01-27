@@ -52,18 +52,16 @@ public class LSMService {
   @Scheduled(initialDelay = 20000, fixedDelay=10000)
   public void merge() throws IOException {
     log.info("**************\nStarting scheduled merging!\n******************");
-
     var mergeSegment = segmentService.getNewSegment();
-
     var oldBackupPath = segmentService.getCurrentBackupPath();
     var segmentEnumeration = getSegmentIndexEnumeration();
     var segmentIndexCountToBeRemoved = segmentEnumeration.size();
     segmentEnumeration = segmentEnumeration.stream()
         .filter(i -> new File(segmentService.getPathForSegment(i.getRight().getSegmentName())).exists()).toList();
     var mergedSegmentIndex = mergeService.merge(segmentEnumeration, mergeSegment.getSegmentPath());
+    segmentService.persistConfig();
     IntStream.range(0, segmentIndexCountToBeRemoved).forEach(x -> indices.removeLast());
     indices.addLast(new SegmentIndex(mergeSegment.getSegmentName(), mergedSegmentIndex));
-
     persistIndices();
     deleteMergedSegmentsAndOldIndexBackup(segmentEnumeration, oldBackupPath);
   }
@@ -95,9 +93,10 @@ public class LSMService {
     memTable.put(payload.getProbeId(), payload);
     if (memTable.size() >= MAX_MEM_TABLE_SIZE) {
       // TODO: Pass this code block to a singe thread executor
-      var mergedSegmentIndex = fileIOService.persist(segmentService.getNewSegment(), memTable);
-      if (!mergedSegmentIndex.getSegmentIndex().isEmpty()) {
-        indices.addFirst(mergedSegmentIndex);
+      var newSegmentIndex = fileIOService.persist(segmentService.getNewSegment(), memTable);
+      segmentService.persistConfig();
+      if (!newSegmentIndex.getSegmentIndex().isEmpty()) {
+        indices.addFirst(newSegmentIndex);
         var oldBackupPath = segmentService.getCurrentBackupPath();
         persistIndices();
         deleteOldIndexBackup(oldBackupPath);
@@ -140,7 +139,7 @@ public class LSMService {
       var backup = segmentService.getNewBackup();
       var indexFile = new File(backup.getBackupPath());
       FileUtils.writeByteArrayToFile(indexFile, bytes);
-      segmentService.setBackupCount(segmentService.getBackupCount() + 1);
+      segmentService.persistConfig();
     } catch (IOException | RuntimeException ex) {
       ex.printStackTrace();
     }

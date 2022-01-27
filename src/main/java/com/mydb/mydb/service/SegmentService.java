@@ -26,18 +26,20 @@ public class SegmentService {
       this.fileIOService = fileIOService;
   }
 
-  public synchronized Segment getNewSegment() throws IOException {
-    var newCount = segmentConfig.getCount() + 1;
-    var newSegmentName = getSegmentName(newCount);
+  public synchronized Segment getNewSegment() {
+    segmentConfig.setCount(segmentConfig.getCount() + 1);
+    var newSegmentName = getSegmentName(segmentConfig.getCount());
     var newSegmentPath = getPathForSegment(newSegmentName);
-    // TODO: Remove this updation from here and do it after persistence
-    segmentConfig.setCount(newCount);
-    fileIOService.persistConfig(Config.CONFIG_PATH, getCurrentSegmentConfig());
     return new Segment(newSegmentName, newSegmentPath);
   }
 
-  public Backup getNewBackup() throws IOException {
-    var newBackupName = getBackupName(segmentConfig.getBackupCount() + 1);
+  public synchronized void persistConfig() {
+    fileIOService.persistConfig(Config.CONFIG_PATH, getCurrentSegmentConfig());
+  }
+
+  public synchronized Backup getNewBackup() throws IOException {
+    segmentConfig.setBackupCount(segmentConfig.getBackupCount() + 1);
+    var newBackupName = getBackupName(segmentConfig.getBackupCount());
     var newBackupPath = getPathForBackup(newBackupName);
     return new Backup(newBackupName, newBackupPath);
   }
@@ -62,12 +64,4 @@ public class SegmentService {
     return segmentConfig.getBasePath() + "/indices/"+ backupName ;
   }
 
-  public int getBackupCount() {
-    return segmentConfig.getBackupCount();
-  }
-
-  public void setBackupCount(final int count) {
-    segmentConfig.setBackupCount(count);
-    fileIOService.persistConfig(Config.CONFIG_PATH, getCurrentSegmentConfig());
-  }
 }
