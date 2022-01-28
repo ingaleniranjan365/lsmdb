@@ -15,6 +15,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.SerializationUtils;
 
 import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.util.Collections;
 import java.util.Enumeration;
@@ -29,7 +30,7 @@ import java.util.stream.IntStream;
 @Service
 public class LSMService {
 
-  public static final long MAX_MEM_TABLE_SIZE = 8;
+  public static final long MAX_MEM_TABLE_SIZE = 10000;
   public static final int MAX_PAYLOAD_SIZE = 20000;
   private final FileIOService fileIOService;
   private final SegmentService segmentService;
@@ -49,7 +50,7 @@ public class LSMService {
     this.memTable = memTable;
   }
 
-  @Scheduled(initialDelay = 20000, fixedDelay=10000)
+  @Scheduled(initialDelay = 20000, fixedDelay=30000)
   public void merge() throws IOException {
     log.info("**************\nStarting scheduled merging!\n******************");
     var mergeSegment = segmentService.getNewSegment();
