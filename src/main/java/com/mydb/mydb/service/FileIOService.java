@@ -56,6 +56,8 @@ public class FileIOService {
   public Optional<Payload> getPayload(final String path, final SegmentMetadata metadata) {
     try {
       var in = readBytes(path, metadata);
+      // TODO: Figure out a faster way to deserialize than to first mapping
+      //  bytes-> obj, obj -> jsonStr and then jsonStr -> Payload
       var obj = SerializationUtils.deserialize(in);
       var jsonStr = mapper.writeValueAsString(obj);
       return Optional.of(mapper.readValue(jsonStr, Payload.class));
@@ -89,6 +91,8 @@ public class FileIOService {
     try {
       File file = new File(path);
       var in = FileUtils.readFileToByteArray(file);
+      // TODO: Figure out a faster way to deserialize than to first mapping
+      //  bytes-> obj, obj -> jsonStr and then jsonStr -> Payload
       var obj = SerializationUtils.deserialize(in);
       var jsonStr = mapper.writeValueAsString(obj);
       var indices = mapper.readValue(jsonStr, new TypeReference<ConcurrentLinkedDeque<SegmentIndex>>() {});

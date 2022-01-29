@@ -79,6 +79,8 @@ public class Config {
           byte[] finalWal = wal;
           IntStream.range(0, finalWal.length / LSMService.MAX_PAYLOAD_SIZE)
               .map(i -> i * LSMService.MAX_PAYLOAD_SIZE)
+              // TODO: Figure out a faster way to deserialize than to first mapping
+              //  bytes-> obj, obj -> jsonStr and then jsonStr -> Payload
               .mapToObj(i -> deserialize(finalWal, i))
               .map(this::getJsonStr)
               .forEach(jsonStr -> extractPayload(memTable, jsonStr));
