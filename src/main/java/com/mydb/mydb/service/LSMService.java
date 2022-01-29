@@ -67,8 +67,8 @@ public class LSMService {
       IntStream.range(0, segmentIndexCountToBeRemoved).forEach(x -> indices.removeLast());
       indices.addLast(new SegmentIndex(mergeSegment, mergedSegmentIndex));
       fileIOService.persistIndices(mergeSegment.getBackupPath(), SerializationUtils.serialize(indices));
+      deleteMergedSegments(segmentEnumeration);
     }
-    deleteMergedSegments(segmentEnumeration);
   }
 
   private void deleteMergedSegments(
