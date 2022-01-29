@@ -1,6 +1,7 @@
 import json
 import random
 import string
+import time
 import uuid
 import requests
 
@@ -65,7 +66,7 @@ def durability(probe_id: str):
 
 if __name__ == '__main__':
     write_count, read_count = [0], [0]
-    probe_ids = get_probe_ids(80)
+    probe_ids = get_probe_ids(25*(10**4))
 
     # for probe_id in probe_ids:
     #     try:
@@ -83,14 +84,20 @@ if __name__ == '__main__':
 
     # print(f'write_count: {write_count} & read_count: {read_count}')
 
+    start_w = time.time()
     try:
-        Parallel(n_jobs=10, require='sharedmem')(delayed(persist)(probe_id) for probe_id in probe_ids)
+        Parallel(n_jobs=24, require='sharedmem')(delayed(persist)(probe_id) for probe_id in probe_ids)
     except Exception as e:
         print(e)
+    end_w = time.time()
 
+    start_r = time.time()
     try:
-        Parallel(n_jobs=10, require='sharedmem')(delayed(durability)(probe_id) for probe_id in probe_ids)
+        Parallel(n_jobs=24, require='sharedmem')(delayed(durability)(probe_id) for probe_id in probe_ids)
     except Exception as e:
         print(e)
+    end_r = time.time()
 
+    print(f'Writing took : {end_w - start_w} secs')
+    print(f'Reading took : {end_r - start_r} secs')
     print(f'write_count: {write_count[0]} & read_count: {read_count[0]}')

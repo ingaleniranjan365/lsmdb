@@ -1,14 +1,10 @@
 package com.mydb.mydb.service;
 
-import com.mydb.mydb.Config;
 import com.mydb.mydb.SegmentConfig;
-import com.mydb.mydb.entity.Backup;
 import com.mydb.mydb.entity.Segment;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
-
-import java.io.IOException;
 
 import static com.mydb.mydb.Config.CONFIG_PATH;
 
@@ -18,14 +14,14 @@ public class SegmentService {
   private final SegmentConfig segmentConfig;
   private final FileIOService fileIOService;
 
-  private SegmentConfig getCurrentSegmentConfig() {
-    return new SegmentConfig(segmentConfig.getBasePath(), segmentConfig.getCount());
-  }
-
   @Autowired
   public SegmentService(@Qualifier("segmentConfig") final SegmentConfig segmentConfig, FileIOService fileIOService) {
-      this.segmentConfig = segmentConfig;
-      this.fileIOService = fileIOService;
+    this.segmentConfig = segmentConfig;
+    this.fileIOService = fileIOService;
+  }
+
+  private SegmentConfig getCurrentSegmentConfig() {
+    return new SegmentConfig(segmentConfig.getBasePath(), segmentConfig.getCount());
   }
 
   public synchronized Segment getNewSegment() {
@@ -33,7 +29,7 @@ public class SegmentService {
     var newSegmentName = getSegmentName(segmentConfig.getCount());
     var newSegmentPath = getPathForSegment(newSegmentName);
     var newBackupName = getBackupName(segmentConfig.getCount());
-    var newBackupPath = getPathForBackup(newSegmentName);
+    var newBackupPath = getPathForBackup(newBackupName);
     persistConfig();
     return new Segment(
         newSegmentName,
@@ -56,11 +52,11 @@ public class SegmentService {
   }
 
   public String getPathForSegment(String segmentName) {
-    return segmentConfig.getBasePath() + "/"+ segmentName ;
+    return segmentConfig.getBasePath() + "/" + segmentName;
   }
 
   public String getPathForBackup(String backupName) {
-    return segmentConfig.getBasePath() + "/indices/"+ backupName ;
+    return segmentConfig.getBasePath() + "/indices/" + backupName;
   }
 
 }

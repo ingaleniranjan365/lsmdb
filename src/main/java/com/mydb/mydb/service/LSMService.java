@@ -1,8 +1,6 @@
 package com.mydb.mydb.service;
 
-import com.mydb.mydb.Config;
 import com.mydb.mydb.entity.Payload;
-import com.mydb.mydb.entity.Segment;
 import com.mydb.mydb.entity.SegmentIndex;
 import com.mydb.mydb.exception.PayloadTooLargeException;
 import com.mydb.mydb.exception.UnknownProbeException;
@@ -32,7 +30,7 @@ import static com.mydb.mydb.Config.DEFAULT_WAL_FILE_PATH;
 @Service
 public class LSMService {
 
-  public static final long MAX_MEM_TABLE_SIZE = 8;
+  public static final long MAX_MEM_TABLE_SIZE = 1000;
   public static final int MAX_PAYLOAD_SIZE = 20000;
   private final FileIOService fileIOService;
   private final SegmentService segmentService;
@@ -41,7 +39,7 @@ public class LSMService {
 
   private Map<String, Payload> memTableForRead;
   private Map<String, Payload> memTableForReadAndWrite;
-  private static final File WALFILE = new File(DEFAULT_WAL_FILE_PATH);
+  private static final File WAL_FILE = new File(DEFAULT_WAL_FILE_PATH);
 
   @Autowired
   public LSMService(@Qualifier("memTable") Map<String, Payload> memTable,
@@ -56,7 +54,7 @@ public class LSMService {
     this.memTableForReadAndWrite = memTable;
   }
 
-  @Scheduled(initialDelay = 20000, fixedDelay = 30000)
+  @Scheduled(initialDelay = 10000, fixedDelay = 15000)
   public void merge() throws IOException {
     log.info("**************\nStarting scheduled merging!\n******************");
     var segmentEnumeration = getSegmentIndexEnumeration();
@@ -129,7 +127,13 @@ public class LSMService {
        * disk since, while this segment is being flushed to disk, we night write more data to WAL.
        * For now, we accept this trade off for simplicity of implementation
        */
-      fileIOService.deleteFile(DEFAULT_WAL_FILE_PATH); // reset WAL
+      synchronized (WAL_FILE) {
+        try {
+          WAL_FILE.delete(); // reset WAL
+        } catch (RuntimeException ex) {
+          ex.printStackTrace();
+        }
+      }
     }
     return payload;
   }
@@ -143,8 +147,8 @@ public class LSMService {
       }
       System.arraycopy(bytes, 0, fixedBytes, 0, bytes.length);
       try {
-        synchronized (WALFILE) {
-          FileUtils.writeByteArrayToFile(WALFILE, fixedBytes, true);
+        synchronized (WAL_FILE) {
+          FileUtils.writeByteArrayToFile(WAL_FILE, fixedBytes, true);
         }
       } catch (IOException e) {
         e.printStackTrace();

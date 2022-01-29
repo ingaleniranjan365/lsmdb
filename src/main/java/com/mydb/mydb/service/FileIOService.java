@@ -111,12 +111,4 @@ public class FileIOService {
     }
   }
 
-  public void deleteFile(final String path) {
-    try{
-      File file = new File(path);
-      file.delete();
-    } catch (RuntimeException ex) {
-      ex.printStackTrace();
-    }
-  }
 }
