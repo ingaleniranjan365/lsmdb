@@ -29,12 +29,10 @@ import static com.mydb.mydb.entity.merge.HeapElement.isProbeIdPresentInList;
 public class MergeService {
 
   private final FileIOService fileIOService;
-  private final SegmentService segmentService;
 
   @Autowired
-  public MergeService(FileIOService fileIOService, SegmentService segmentService) {
+  public MergeService(FileIOService fileIOService) {
     this.fileIOService = fileIOService;
-    this.segmentService = segmentService;
   }
 
   public Map<String, SegmentMetadata> merge(
@@ -56,7 +54,7 @@ public class MergeService {
       }
       var segmentIndex = segmentIndexEnumeration.get(candidate.getIndex()).right;
       var in = fileIOService.readBytes(
-          segmentService.getPathForSegment(segmentIndex.getSegmentName()),
+          segmentIndex.getSegment().getSegmentPath(),
           segmentIndex.getSegmentIndex().get(candidate.getProbeId())
       );
       mergedSegmentIndex.put(candidate.getProbeId(), new SegmentMetadata((int) (mergeSegment.length()), in.length));

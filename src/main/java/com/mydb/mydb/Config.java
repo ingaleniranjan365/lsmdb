@@ -41,18 +41,21 @@ public class Config {
       config.setBasePath(DEFAULT_BASE_PATH);
       return config;
     }
-    return new SegmentConfig(DEFAULT_BASE_PATH, 0, -1);
+    return new SegmentConfig(DEFAULT_BASE_PATH, -1);
   }
 
   @Bean("indices")
   public ConcurrentLinkedDeque<SegmentIndex> getIndices() {
     var segmentConfig = fileIOService.getSegmentConfig(CONFIG_PATH);
     if (segmentConfig.isPresent()) {
-      var index = fileIOService.getIndex(
-          DEFAULT_BASE_PATH + "/indices/backup-" + segmentConfig.get().getBackupCount()
-      );
-      if (index.isPresent()) {
-        return index.get();
+      var counter = segmentConfig.get().getCount();
+      while(counter >= 0) {
+        var index = fileIOService.getIndex(
+            DEFAULT_BASE_PATH + "/indices/backup-" + counter);
+        if (index.isPresent()) {
+          return index.get();
+        }
+        counter--;
       }
     }
     return new ConcurrentLinkedDeque<>();

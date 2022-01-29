@@ -10,5 +10,4 @@ import lombok.NoArgsConstructor;
 public class SegmentConfig {
   private String basePath;
   private int count;
-  private int backupCount;
 }

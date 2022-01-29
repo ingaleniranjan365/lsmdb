@@ -26,20 +26,22 @@ import java.util.TreeMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.stream.IntStream;
 
+import static com.mydb.mydb.Config.DEFAULT_WAL_FILE_PATH;
+
 @Slf4j
 @Service
 public class LSMService {
 
-  public static final long MAX_MEM_TABLE_SIZE = 10000;
+  public static final long MAX_MEM_TABLE_SIZE = 8;
   public static final int MAX_PAYLOAD_SIZE = 20000;
   private final FileIOService fileIOService;
   private final SegmentService segmentService;
   private final MergeService mergeService;
   private final ConcurrentLinkedDeque<SegmentIndex> indices;
-  private Map<String, Payload> memTable;
 
-  private Map<String, Payload> memTableForRead = memTable;
-  private Map<String, Payload> memTableForWrite = memTable;
+  private Map<String, Payload> memTableForRead;
+  private Map<String, Payload> memTableForReadAndWrite;
+  private static final File WALFILE = new File(DEFAULT_WAL_FILE_PATH);
 
   @Autowired
   public LSMService(@Qualifier("memTable") Map<String, Payload> memTable,
@@ -50,116 +52,109 @@ public class LSMService {
     this.segmentService = segmentService;
     this.mergeService = mergeService;
     this.indices = indices;
-    this.memTable = memTable;
+    this.memTableForRead =memTable;
+    this.memTableForReadAndWrite = memTable;
   }
 
-  // count: 20
   @Scheduled(initialDelay = 20000, fixedDelay = 30000)
   public void merge() throws IOException {
     log.info("**************\nStarting scheduled merging!\n******************");
-    var mergeSegment = segmentService.getNewSegment(); //10
-    var oldBackupPath = segmentService.getCurrentBackupPath();
     var segmentEnumeration = getSegmentIndexEnumeration();
     var segmentIndexCountToBeRemoved = segmentEnumeration.size();
+    var mergeSegment = segmentService.getNewSegment();
     segmentEnumeration = segmentEnumeration.stream()
-        .filter(i -> new File(segmentService.getPathForSegment(i.getRight().getSegmentName())).exists()).toList();
+        .filter(i -> new File(segmentService.getPathForSegment(i.getRight().getSegment().getSegmentName())).exists()).toList();
     var mergedSegmentIndex = mergeService.merge(segmentEnumeration, mergeSegment.getSegmentPath());
-    // Issue here, might put config in an inconsistent state
-    // TODO: Verify this is the only place in entire app where we remove from indices
     IntStream.range(0, segmentIndexCountToBeRemoved).forEach(x -> indices.removeLast());
-    indices.addLast(new SegmentIndex(mergeSegment.getSegmentName(), mergedSegmentIndex));
-    // TODO: think over parallel execution of this
-    persistIndices();
-    deleteMergedSegmentsAndOldIndexBackup(segmentEnumeration, oldBackupPath);
+    indices.addLast(new SegmentIndex(mergeSegment, mergedSegmentIndex));
+    fileIOService.persistIndices(mergeSegment.getBackupPath(), SerializationUtils.serialize(indices));
+    deleteMergedSegments(segmentEnumeration);
   }
 
-  private void deleteMergedSegmentsAndOldIndexBackup(
-      final List<ImmutablePair<Enumeration<String>, SegmentIndex>> segmentIndexEnumeration,
-      final String oldBackupPath
-  ) {
-    segmentIndexEnumeration.parallelStream().map(x -> x.getRight().getSegmentName())
-        .map(segmentService::getPathForSegment).forEach(z -> new File(z).delete());
-    deleteOldIndexBackup(oldBackupPath);
+  private void deleteMergedSegments(
+      final List<ImmutablePair<Enumeration<String>, SegmentIndex>> segmentIndexEnumeration) {
+    segmentIndexEnumeration.parallelStream().map(x -> x.getRight().getSegment())
+     .forEach(segment -> {
+       try {
+         new File(segment.getSegmentPath()).delete();
+         new File(segment.getBackupPath()).delete();
+       } catch (RuntimeException exception) {
+         exception.printStackTrace();
+       }
+     });
   }
 
-  // TODO: This function need not be synchronized
-  private synchronized void deleteOldIndexBackup(final String oldBackupPath) {
-    try {
-      new File(oldBackupPath).delete();
-    } catch (RuntimeException ex) {
-      ex.printStackTrace();
-    }
-  }
 
   public List<ImmutablePair<Enumeration<String>, SegmentIndex>> getSegmentIndexEnumeration() {
     return indices.stream()
         .map(j -> ImmutablePair.of(Collections.enumeration(j.getSegmentIndex().keySet()), j)).toList();
   }
 
-  // TODO: this entire function need not be synchronous
-  public synchronized Payload insert(final Payload payload) throws IOException, PayloadTooLargeException {
+
+  public Payload insert(final Payload payload) throws IOException, PayloadTooLargeException {
     writeAppendLog(payload);
-    memTable.put(payload.getProbeId(), payload);
-    if (memTable.size() >= MAX_MEM_TABLE_SIZE) {
-      Segment newSegment;
-      byte[] bytes;
-      newSegment = segmentService.getNewSegment();
-      var newSegmentIndex = fileIOService.persist(
-          newSegment, memTable
-      );
-      indices.addFirst(newSegmentIndex);
-      bytes = SerializationUtils.serialize(indices);
-      persistIndices(newSegment.getBackupPath(), bytes);
-      resetMemTableAndWAL();
+    memTableForReadAndWrite.put(payload.getProbeId(), payload);
+    boolean flushMemTable = false;
+    synchronized (memTableForReadAndWrite) {
+      if(memTableForReadAndWrite.size() >= MAX_MEM_TABLE_SIZE) {
+        flushMemTable = true;
+        memTableForReadAndWrite = new TreeMap<>();
+      }
+    }
+
+    /**
+     *   Here we are choosing go with a non synchronised implementation under the assumption that
+     *   once memTableForReadAndWrite will be set to a new tree map in above synchronised block,
+     *   the thread that is going to push the memtable to disk will have enough time to do so
+     *   before memtable gets full again and hence following if block will not get executed
+     *   concurrently by 2 threads most likely.
+     *   If however, 2 (or more) threads end up executing following if block in parallel, a more recent
+     *   version of indices might end up in a backup file with lower count value which might result in
+     *   some data loss in case of crash recovery but for now, we accept that tradeoff
+     */
+
+    if (flushMemTable) {
+//      synchronized (indices) {
+        var newSegment = segmentService.getNewSegment();
+        var newSegmentIndex = fileIOService.persist(
+            newSegment, memTableForRead
+        );
+        indices.addFirst(newSegmentIndex);
+        fileIOService.persistIndices(newSegment.getBackupPath(), SerializationUtils.serialize(indices));
+//      }
+      memTableForRead = memTableForReadAndWrite;
+
+      /**
+       * After following execution we might end up deleting a piece of data that has not yet been persisted to
+       * disk since, while this segment is being flushed to disk, we night write more data to WAL.
+       * For now, we accept this trade off for simplicity of implementation
+       */
+      fileIOService.deleteFile(DEFAULT_WAL_FILE_PATH); // reset WAL
     }
     return payload;
   }
 
-  private synchronized void resetMemTableAndWAL() {
-    // TODO: Update this implementation by maintaining 2 references of memtable
-    memTable = new TreeMap<>();
-    /***
-     *  Here we might end up loosing some data if another thread has written more records to WAL by the time
-     *  control reaches here and we have accepted that tradeoff for now
-     */
-    clearWriteAppendLog();
-  }
-
-  private void clearWriteAppendLog() {
-    File file = new File(Config.DEFAULT_WAL_FILE_PATH);
-    file.delete();
-  }
-
   private void writeAppendLog(Payload payload) throws PayloadTooLargeException {
-    File file = new File(Config.DEFAULT_WAL_FILE_PATH);
     var fixedBytes = new byte[MAX_PAYLOAD_SIZE];
     var bytes = SerializationUtils.serialize(payload);
     if (bytes != null && bytes.length > 0) {
       if (bytes.length > MAX_PAYLOAD_SIZE) {
         throw new PayloadTooLargeException();
       }
-      // TODO: following line should be executed synchronously by taking a write lock on WAL file
       System.arraycopy(bytes, 0, fixedBytes, 0, bytes.length);
       try {
-        FileUtils.writeByteArrayToFile(file, fixedBytes, true);
+        synchronized (WALFILE) {
+          FileUtils.writeByteArrayToFile(WALFILE, fixedBytes, true);
+        }
       } catch (IOException e) {
         e.printStackTrace();
       }
     }
   }
 
-  // TODO: Everything in this function need not be synchronised
-  public synchronized void persistIndices(final String newBackupPath, final byte[] indicesBytes) {
-    try {
-      var newIndexFile = new File(newBackupPath);
-      FileUtils.writeByteArrayToFile(newIndexFile, indicesBytes);
-    } catch (IOException | RuntimeException ex) {
-      ex.printStackTrace();
-    }
-  }
-
   public Payload getData(String probeId) throws UnknownProbeException {
-    var data = memTable.getOrDefault(probeId, null);
+    var data = Optional.ofNullable(memTableForRead.getOrDefault(probeId, null))
+        .orElse(memTableForReadAndWrite.getOrDefault(probeId, null));
     if (data == null) {
       var dataFromSegments = getDataFromSegments(probeId);
       if (dataFromSegments == null) {
@@ -174,7 +169,7 @@ public class LSMService {
 
     var segmentIndex = indices.stream().filter(x -> x.getSegmentIndex().containsKey(probeId)).findFirst().orElse(null);
     return Optional.ofNullable(segmentIndex)
-        .map(i -> segmentService.getPathForSegment(i.getSegmentName()))
+        .map(i -> segmentService.getPathForSegment(i.getSegment().getSegmentName()))
         .map(p -> fileIOService.getPayload(p, segmentIndex.getSegmentIndex().get(probeId)))
         .filter(Optional::isPresent)
         .map(Optional::get)

@@ -19,7 +19,7 @@ public class SegmentService {
   private final FileIOService fileIOService;
 
   private SegmentConfig getCurrentSegmentConfig() {
-    return new SegmentConfig(segmentConfig.getBasePath(), segmentConfig.getCount(), segmentConfig.getBackupCount());
+    return new SegmentConfig(segmentConfig.getBasePath(), segmentConfig.getCount());
   }
 
   @Autowired
@@ -45,22 +45,6 @@ public class SegmentService {
 
   private synchronized void persistConfig() {
     fileIOService.persistConfig(CONFIG_PATH, getCurrentSegmentConfig());
-  }
-
-  public synchronized Backup getNewBackup() throws IOException {
-    segmentConfig.setBackupCount(segmentConfig.getBackupCount() + 1);
-    var newBackupName = getBackupName(segmentConfig.getBackupCount());
-    var newBackupPath = getPathForBackup(newBackupName);
-    persistConfig();
-    return new Backup(newBackupName, newBackupPath);
-  }
-
-  public String getCurrentBackupPath() {
-    var config = fileIOService.getSegmentConfig(CONFIG_PATH);
-    if(config.isPresent()) {
-      return getPathForBackup(getBackupName(config.get().getCount()));
-    }
-    return getPathForBackup(getBackupName(segmentConfig.getCount()));
   }
 
   private String getSegmentName(int i) {

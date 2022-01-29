@@ -65,7 +65,7 @@ def durability(probe_id: str):
 
 if __name__ == '__main__':
     write_count, read_count = [0], [0]
-    probe_ids = get_probe_ids(25*(10**4))
+    probe_ids = get_probe_ids(80)
 
     # for probe_id in probe_ids:
     #     try:

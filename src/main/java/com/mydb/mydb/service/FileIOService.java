@@ -2,11 +2,13 @@ package com.mydb.mydb.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.mydb.mydb.Config;
 import com.mydb.mydb.SegmentConfig;
 import com.mydb.mydb.entity.Payload;
 import com.mydb.mydb.entity.Segment;
 import com.mydb.mydb.entity.SegmentIndex;
 import com.mydb.mydb.entity.SegmentMetadata;
+import com.mydb.mydb.exception.PayloadTooLargeException;
 import org.apache.commons.io.FileUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.util.SerializationUtils;
@@ -39,7 +41,7 @@ public class FileIOService {
       }
     });
 
-    return new SegmentIndex(segment.getSegmentName(), index);
+    return new SegmentIndex(segment, index);
   }
 
   public void persistConfig(final String configPath, final SegmentConfig config)  {
@@ -96,6 +98,25 @@ public class FileIOService {
     } catch (IOException e) {
       e.printStackTrace();
       return Optional.empty();
+    }
+  }
+
+
+  public void persistIndices(final String newBackupPath, final byte[] indicesBytes) {
+    try {
+      var newIndexFile = new File(newBackupPath);
+      FileUtils.writeByteArrayToFile(newIndexFile, indicesBytes);
+    } catch (IOException | RuntimeException ex) {
+      ex.printStackTrace();
+    }
+  }
+
+  public void deleteFile(final String path) {
+    try{
+      File file = new File(path);
+      file.delete();
+    } catch (RuntimeException ex) {
+      ex.printStackTrace();
     }
   }
 }

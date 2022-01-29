@@ -14,7 +14,7 @@ public class SegmentIndex implements Serializable {
 
   private static final long serialVersionUID = 5388380270261334686L;
 
-  private String segmentName;
+  private Segment segment;
 
   private Map<String, SegmentMetadata> segmentIndex;
 }

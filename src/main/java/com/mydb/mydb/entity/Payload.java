@@ -2,12 +2,14 @@ package com.mydb.mydb.entity;
 
 import lombok.Data;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.List;
 
 @Data
 public class Payload implements Serializable {
 
+  @Serial
   private static final long serialVersionUID = 5388380270261334690L;
 
 
