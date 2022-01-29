@@ -30,7 +30,7 @@ import static com.mydb.mydb.Config.DEFAULT_WAL_FILE_PATH;
 @Service
 public class LSMService {
 
-  public static final long MAX_MEM_TABLE_SIZE = 1000;
+  public static final long MAX_MEM_TABLE_SIZE = 20000;
   public static final int MAX_PAYLOAD_SIZE = 20000;
   private final FileIOService fileIOService;
   private final SegmentService segmentService;
@@ -50,7 +50,7 @@ public class LSMService {
     this.segmentService = segmentService;
     this.mergeService = mergeService;
     this.indices = indices;
-    this.memTableForRead =memTable;
+    this.memTableForRead = memTable;
     this.memTableForReadAndWrite = memTable;
   }
 
@@ -62,10 +62,12 @@ public class LSMService {
     var mergeSegment = segmentService.getNewSegment();
     segmentEnumeration = segmentEnumeration.stream()
         .filter(i -> new File(segmentService.getPathForSegment(i.getRight().getSegment().getSegmentName())).exists()).toList();
-    var mergedSegmentIndex = mergeService.merge(segmentEnumeration, mergeSegment.getSegmentPath());
-    IntStream.range(0, segmentIndexCountToBeRemoved).forEach(x -> indices.removeLast());
-    indices.addLast(new SegmentIndex(mergeSegment, mergedSegmentIndex));
-    fileIOService.persistIndices(mergeSegment.getBackupPath(), SerializationUtils.serialize(indices));
+    if(segmentEnumeration.size() > 1) {
+      var mergedSegmentIndex = mergeService.merge(segmentEnumeration, mergeSegment.getSegmentPath());
+      IntStream.range(0, segmentIndexCountToBeRemoved).forEach(x -> indices.removeLast());
+      indices.addLast(new SegmentIndex(mergeSegment, mergedSegmentIndex));
+      fileIOService.persistIndices(mergeSegment.getBackupPath(), SerializationUtils.serialize(indices));
+    }
     deleteMergedSegments(segmentEnumeration);
   }
 
