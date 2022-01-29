@@ -15,6 +15,6 @@ public class SegmentMetadata implements Serializable {
   @Serial
   private static final long serialVersionUID = 5388380270261334689L;
 
-  private int offset;
-  private int size;
+  private long offset;
+  private long size;
 }

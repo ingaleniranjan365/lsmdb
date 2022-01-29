@@ -39,11 +39,11 @@ public class SegmentService {
     );
   }
 
-  private String getSegmentName(int i) {
+  private String getSegmentName(long i) {
     return String.format("segment-%d", i);
   }
 
-  private String getBackupName(int i) {
+  private String getBackupName(long i) {
     return String.format("backup-%d", i);
   }
 

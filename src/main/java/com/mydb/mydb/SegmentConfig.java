@@ -9,5 +9,5 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class SegmentConfig {
   private String basePath;
-  private int count;
+  private long count;
 }

@@ -57,20 +57,13 @@ public class MergeService {
           segmentIndex.getSegment().getSegmentPath(),
           segmentIndex.getSegmentIndex().get(candidate.getProbeId())
       );
-      mergedSegmentIndex.put(candidate.getProbeId(), new SegmentMetadata((int) (mergeSegment.length()), in.length));
+      mergedSegmentIndex.put(candidate.getProbeId(), new SegmentMetadata(mergeSegment.length(), in.length));
       FileUtils.writeByteArrayToFile(mergeSegment, in, true);
 
       addNextHeapElementForSegment(segmentIndexEnumeration, heap, candidate);
       last = candidate;
     }
     return mergedSegmentIndex;
-  }
-
-  private List<Payload> readMergedFile(Map<String, SegmentMetadata> mergedSegmentIndex, final String path) {
-    return mergedSegmentIndex.values().stream()
-        .map(v ->
-            fileIOService.getPayload(path, v))
-        .filter(Optional::isPresent).map(Optional::get).collect(Collectors.toList());
   }
 
   private HeapElement findNextCandidate(List<ImmutablePair<Enumeration<String>, SegmentIndex>> segmentIndexEnumeration,

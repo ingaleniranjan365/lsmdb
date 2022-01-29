@@ -69,8 +69,8 @@ public class FileIOService {
     RandomAccessFile raf = null;
     raf = new RandomAccessFile(path, "r");
     raf.seek((long) metadata.getOffset());
-    byte[] in = new byte[metadata.getSize()];
-    raf.read(in, 0, metadata.getSize());
+    byte[] in = new byte[(int) metadata.getSize()];
+    raf.read(in, 0, (int) metadata.getSize());
     raf.close();
     return in;
   }
