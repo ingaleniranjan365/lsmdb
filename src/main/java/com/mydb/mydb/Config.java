@@ -50,7 +50,7 @@ public class Config {
     if (segmentConfig.isPresent()) {
       var counter = segmentConfig.get().getCount();
       while(counter >= 0) {
-        var index = fileIOService.getIndex(
+        var index = fileIOService.getIndices(
             DEFAULT_BASE_PATH + "/indices/backup-" + counter);
         if (index.isPresent()) {
           return index.get();
@@ -61,7 +61,6 @@ public class Config {
     return new ConcurrentLinkedDeque<>();
   }
 
-  // TODO: test that failure/exception to deserialize a payload does not fail the whole file processing
   @Bean("memTable")
   public Map<String, Payload> fromWAL() {
     var memTable = new TreeMap<String, Payload>();

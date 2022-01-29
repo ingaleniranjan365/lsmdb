@@ -89,8 +89,14 @@ public class LSMService {
   }
 
 
-  public Payload insert(final Payload payload) throws IOException, PayloadTooLargeException {
-    writeAppendLog(payload);
+  public Payload insert(final Payload payload) throws PayloadTooLargeException {
+    try {
+      writeAppendLog(payload);
+    } catch (PayloadTooLargeException ex) {
+      throw ex;
+    } catch (RuntimeException ex) {
+      ex.printStackTrace();
+    }
     memTableForReadAndWrite.put(payload.getProbeId(), payload);
     boolean flushMemTable = false;
     synchronized (memTableForReadAndWrite) {
@@ -113,12 +119,16 @@ public class LSMService {
 
     if (flushMemTable) {
 //      synchronized (indices) {
-        var newSegment = segmentService.getNewSegment();
-        var newSegmentIndex = fileIOService.persist(
-            newSegment, memTableForRead
-        );
-        indices.addFirst(newSegmentIndex);
-        fileIOService.persistIndices(newSegment.getBackupPath(), SerializationUtils.serialize(indices));
+          try {
+            var newSegment = segmentService.getNewSegment();
+            var newSegmentIndex = fileIOService.persist(
+                newSegment, memTableForRead
+            );
+            indices.addFirst(newSegmentIndex);
+            fileIOService.persistIndices(newSegment.getBackupPath(), SerializationUtils.serialize(indices));
+          } catch (RuntimeException ex) {
+            ex.printStackTrace();
+          }
 //      }
       memTableForRead = memTableForReadAndWrite;
 

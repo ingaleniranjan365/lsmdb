@@ -2,13 +2,11 @@ package com.mydb.mydb.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.mydb.mydb.Config;
 import com.mydb.mydb.SegmentConfig;
 import com.mydb.mydb.entity.Payload;
 import com.mydb.mydb.entity.Segment;
 import com.mydb.mydb.entity.SegmentIndex;
 import com.mydb.mydb.entity.SegmentMetadata;
-import com.mydb.mydb.exception.PayloadTooLargeException;
 import org.apache.commons.io.FileUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.util.SerializationUtils;
@@ -87,14 +85,14 @@ public class FileIOService {
     }
   }
 
-  public Optional<ConcurrentLinkedDeque<SegmentIndex>> getIndex(String path){
+  public Optional<ConcurrentLinkedDeque<SegmentIndex>> getIndices(String path){
     try {
       File file = new File(path);
       var in = FileUtils.readFileToByteArray(file);
       var obj = SerializationUtils.deserialize(in);
       var jsonStr = mapper.writeValueAsString(obj);
-      var index = mapper.readValue(jsonStr, new TypeReference<ConcurrentLinkedDeque<SegmentIndex>>() {});
-      return Optional.of(index);
+      var indices = mapper.readValue(jsonStr, new TypeReference<ConcurrentLinkedDeque<SegmentIndex>>() {});
+      return Optional.of(indices);
     } catch (IOException e) {
       e.printStackTrace();
       return Optional.empty();

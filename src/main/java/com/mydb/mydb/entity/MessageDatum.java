@@ -1,9 +1,11 @@
 package com.mydb.mydb.entity;
 
+import java.io.Serial;
 import java.io.Serializable;
 
 public class MessageDatum implements Serializable {
 
+  @Serial
   private static final long serialVersionUID = 5388380270261334691L;
 
   public String measureName;

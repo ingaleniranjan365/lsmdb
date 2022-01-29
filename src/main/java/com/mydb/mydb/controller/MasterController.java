@@ -4,7 +4,6 @@ import com.mydb.mydb.entity.Payload;
 import com.mydb.mydb.exception.PayloadTooLargeException;
 import com.mydb.mydb.exception.UnknownProbeException;
 import com.mydb.mydb.service.LSMService;
-import com.mydb.mydb.service.MergeService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,18 +13,15 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.io.IOException;
-import java.util.List;
 
 @RestController
 public class MasterController {
 
   private LSMService lsmService;
-  private MergeService mergeService;
 
   @Autowired
-  public MasterController(LSMService lsmService, MergeService mergeService) {
+  public MasterController(LSMService lsmService) {
     this.lsmService = lsmService;
-    this.mergeService = mergeService;
   }
 
   @PostMapping("/echo")
