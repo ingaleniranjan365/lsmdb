@@ -10,4 +10,6 @@ import lombok.NoArgsConstructor;
 public class Segment {
   private String segmentName;
   private String segmentPath;
+  private String backupName;
+  private String backupPath;
 }

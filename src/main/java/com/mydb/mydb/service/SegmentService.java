@@ -10,6 +10,8 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 
+import static com.mydb.mydb.Config.CONFIG_PATH;
+
 @Service
 public class SegmentService {
 
@@ -30,22 +32,35 @@ public class SegmentService {
     segmentConfig.setCount(segmentConfig.getCount() + 1);
     var newSegmentName = getSegmentName(segmentConfig.getCount());
     var newSegmentPath = getPathForSegment(newSegmentName);
-    return new Segment(newSegmentName, newSegmentPath);
+    var newBackupName = getBackupName(segmentConfig.getCount());
+    var newBackupPath = getPathForBackup(newSegmentName);
+    persistConfig();
+    return new Segment(
+        newSegmentName,
+        newSegmentPath,
+        newBackupName,
+        newBackupPath
+    );
   }
 
-  public synchronized void persistConfig() {
-    fileIOService.persistConfig(Config.CONFIG_PATH, getCurrentSegmentConfig());
+  private synchronized void persistConfig() {
+    fileIOService.persistConfig(CONFIG_PATH, getCurrentSegmentConfig());
   }
 
   public synchronized Backup getNewBackup() throws IOException {
     segmentConfig.setBackupCount(segmentConfig.getBackupCount() + 1);
     var newBackupName = getBackupName(segmentConfig.getBackupCount());
     var newBackupPath = getPathForBackup(newBackupName);
+    persistConfig();
     return new Backup(newBackupName, newBackupPath);
   }
 
   public String getCurrentBackupPath() {
-    return getPathForBackup(getBackupName(segmentConfig.getBackupCount()));
+    var config = fileIOService.getSegmentConfig(CONFIG_PATH);
+    if(config.isPresent()) {
+      return getPathForBackup(getBackupName(config.get().getCount()));
+    }
+    return getPathForBackup(getBackupName(segmentConfig.getCount()));
   }
 
   private String getSegmentName(int i) {
