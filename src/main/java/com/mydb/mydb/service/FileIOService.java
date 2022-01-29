@@ -71,6 +71,7 @@ public class FileIOService {
     raf.seek((long) metadata.getOffset());
     byte[] in = new byte[metadata.getSize()];
     raf.read(in, 0, metadata.getSize());
+    raf.close();
     return in;
   }
 
