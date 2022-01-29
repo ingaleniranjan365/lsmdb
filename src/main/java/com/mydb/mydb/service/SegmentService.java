@@ -30,17 +30,13 @@ public class SegmentService {
     var newSegmentPath = getPathForSegment(newSegmentName);
     var newBackupName = getBackupName(segmentConfig.getCount());
     var newBackupPath = getPathForBackup(newBackupName);
-    persistConfig();
+    fileIOService.persistConfig(CONFIG_PATH, getCurrentSegmentConfig());
     return new Segment(
         newSegmentName,
         newSegmentPath,
         newBackupName,
         newBackupPath
     );
-  }
-
-  private synchronized void persistConfig() {
-    fileIOService.persistConfig(CONFIG_PATH, getCurrentSegmentConfig());
   }
 
   private String getSegmentName(int i) {
