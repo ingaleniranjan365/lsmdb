@@ -23,10 +23,10 @@ import java.util.stream.IntStream;
 @Configuration
 public class Config {
 
-  public static final String PATH_TO_REPOSITORY_ROOT = System.getProperty("user.dir");
-  public static final String CONFIG_PATH = PATH_TO_REPOSITORY_ROOT + "/src/main/resources/segmentState.json";
-  public static final String DEFAULT_BASE_PATH = PATH_TO_REPOSITORY_ROOT + "/src/main/resources/segments";
-  public static final String DEFAULT_WAL_FILE_PATH = PATH_TO_REPOSITORY_ROOT + "/src/main/resources/segments/wal/wal";
+  public static final String PATH_TO_HOME = System.getProperty("user.home");
+  public static final String CONFIG_PATH = PATH_TO_HOME + "/data/segmentState.json";
+  public static final String DEFAULT_BASE_PATH = PATH_TO_HOME + "/data/segments";
+  public static final String DEFAULT_WAL_FILE_PATH = PATH_TO_HOME + "/data/segments/wal/wal";
 
   private static final ObjectMapper mapper = new ObjectMapper();
 
