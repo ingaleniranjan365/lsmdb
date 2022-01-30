@@ -25,12 +25,13 @@ import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.stream.IntStream;
 
 import static com.mydb.mydb.Config.DEFAULT_WAL_FILE_PATH;
+import static com.mydb.mydb.MydbApplication.MAX_MEM_TABLE_SIZE;
 
 @Slf4j
 @Service
 public class LSMService {
 
-  public static final long MAX_MEM_TABLE_SIZE = 20000;
+
   public static final int MAX_PAYLOAD_SIZE = 20000;
   private final FileIOService fileIOService;
   private final SegmentService segmentService;
@@ -52,6 +53,7 @@ public class LSMService {
     this.indices = indices;
     this.memTableForRead = memTable;
     this.memTableForReadAndWrite = memTable;
+    log.info("Constant imported with value {}", MAX_MEM_TABLE_SIZE);
   }
 
   @Scheduled(initialDelay = 10000, fixedDelay = 15000)
