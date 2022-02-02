@@ -1,7 +1,5 @@
 package com.mydb.mydb;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mydb.mydb.entity.Payload;
 import com.mydb.mydb.entity.SegmentIndex;
 import com.mydb.mydb.service.FileIOService;
@@ -10,7 +8,6 @@ import org.apache.commons.io.FileUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.util.SerializationUtils;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -18,7 +15,6 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.util.Arrays;
 import java.util.Map;
-import java.util.Optional;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.stream.IntStream;
@@ -30,8 +26,6 @@ public class Config {
   public static final String CONFIG_PATH = PATH_TO_HOME + "/data/segmentState.json";
   public static final String DEFAULT_BASE_PATH = PATH_TO_HOME + "/data/segments";
   public static final String DEFAULT_WAL_FILE_PATH = PATH_TO_HOME + "/data/segments/wal/wal";
-
-  private static final ObjectMapper mapper = new ObjectMapper();
 
   @Autowired
   private FileIOService fileIOService;
@@ -52,7 +46,7 @@ public class Config {
     var segmentConfig = fileIOService.getSegmentConfig(CONFIG_PATH);
     if (segmentConfig.isPresent()) {
       var counter = segmentConfig.get().getCount();
-      while(counter >= 0) {
+      while (counter >= 0) {
         var index = fileIOService.getIndices(
             DEFAULT_BASE_PATH + "/indices/backup-" + counter);
         if (index.isPresent()) {
@@ -113,7 +107,7 @@ public class Config {
       ByteArrayInputStream bis = new ByteArrayInputStream(in);
       ObjectInputStream ois = new ObjectInputStream(bis);
       return (Payload) ois.readObject();
-    } catch (ClassNotFoundException |  IOException | RuntimeException ex) {
+    } catch (ClassNotFoundException | IOException | RuntimeException ex) {
       ex.printStackTrace();
       return null;
     }
