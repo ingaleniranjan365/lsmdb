@@ -1,6 +1,5 @@
 package com.mydb.mydb.service;
 
-import com.mydb.mydb.entity.Payload;
 import com.mydb.mydb.entity.SegmentIndex;
 import com.mydb.mydb.exception.PayloadTooLargeException;
 import com.mydb.mydb.exception.UnknownProbeException;
@@ -22,7 +21,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.IntStream;
 
 import static com.mydb.mydb.Config.DEFAULT_WAL_FILE_PATH;
@@ -39,12 +37,12 @@ public class LSMService {
   private final MergeService mergeService;
   private final ConcurrentLinkedDeque<SegmentIndex> indices;
 
-  private Map<String, Payload> memTableForRead;
-  private Map<String, Payload> memTableForReadAndWrite;
+  private Map<String, String> memTableForRead;
+  private Map<String, String> memTableForReadAndWrite;
   private static final File WAL_FILE = new File(DEFAULT_WAL_FILE_PATH);
 
   @Autowired
-  public LSMService(@Qualifier("memTable") Map<String, Payload> memTable,
+  public LSMService(@Qualifier("memTable") Map<String, String> memTable,
                     @Qualifier("indices") ConcurrentLinkedDeque<SegmentIndex> indices, FileIOService fileIOService,
                     SegmentService segmentService, MergeService mergeService
   ) {
@@ -94,7 +92,7 @@ public class LSMService {
   }
 
 
-  public Payload insert(final Payload payload) throws PayloadTooLargeException {
+  public String insert(final String probeId, final String payload) throws PayloadTooLargeException {
     try {
       writeAppendLog(payload);
     } catch (PayloadTooLargeException ex) {
@@ -102,7 +100,7 @@ public class LSMService {
     } catch (RuntimeException ex) {
       ex.printStackTrace();
     }
-    memTableForReadAndWrite.put(payload.getProbeId(), payload);
+    memTableForReadAndWrite.put(probeId, payload);
     boolean flushMemTable = false;
     synchronized (memTableForReadAndWrite) {
       if(memTableForReadAndWrite.size() >= MAX_MEM_TABLE_SIZE) {
@@ -153,7 +151,7 @@ public class LSMService {
     return payload;
   }
 
-  private void writeAppendLog(Payload payload) throws PayloadTooLargeException {
+  private void writeAppendLog(String payload) throws PayloadTooLargeException {
     var fixedBytes = new byte[MAX_PAYLOAD_SIZE];
     var bytes = SerializationUtils.serialize(payload);
     if (bytes != null && bytes.length > 0) {

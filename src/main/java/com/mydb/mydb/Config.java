@@ -1,6 +1,8 @@
 package com.mydb.mydb;
 
-import com.mydb.mydb.entity.Payload;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mydb.mydb.entity.SegmentIndex;
 import com.mydb.mydb.service.FileIOService;
 import com.mydb.mydb.service.LSMService;
@@ -26,6 +28,7 @@ public class Config {
   public static final String CONFIG_PATH = PATH_TO_HOME + "/data/segmentState.json";
   public static final String DEFAULT_BASE_PATH = PATH_TO_HOME + "/data/segments";
   public static final String DEFAULT_WAL_FILE_PATH = PATH_TO_HOME + "/data/segments/wal/wal";
+  public static final ObjectMapper mapper = new ObjectMapper();
 
   @Autowired
   private FileIOService fileIOService;
@@ -59,8 +62,8 @@ public class Config {
   }
 
   @Bean("memTable")
-  public Map<String, Payload> fromWAL() {
-    var memTable = new TreeMap<String, Payload>();
+  public Map<String, String> fromWAL() {
+    var memTable = new TreeMap<String, String>();
     try {
       var walFile = new File(DEFAULT_WAL_FILE_PATH);
       if (walFile.exists()) {
@@ -80,8 +83,8 @@ public class Config {
               .forEach(payload -> {
                 if (payload != null) {
                   try {
-                    memTable.put(payload.getProbeId(), payload);
-                  } catch (RuntimeException e) {
+                    memTable.put(mapper.readTree(payload).get, payload);
+                  } catch (RuntimeException | JsonProcessingException e) {
                     e.printStackTrace();
                   }
                 }
@@ -101,12 +104,12 @@ public class Config {
     return memTable;
   }
 
-  private Payload deserialize(byte[] finalWal, int i) {
+  private String deserialize(byte[] finalWal, int i) {
     try {
       var in = Arrays.copyOfRange(finalWal, i, i + LSMService.MAX_PAYLOAD_SIZE);
       ByteArrayInputStream bis = new ByteArrayInputStream(in);
       ObjectInputStream ois = new ObjectInputStream(bis);
-      return (Payload) ois.readObject();
+      return (String) ois.readObject();
     } catch (ClassNotFoundException | IOException | RuntimeException ex) {
       ex.printStackTrace();
       return null;

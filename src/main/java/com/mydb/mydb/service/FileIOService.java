@@ -2,7 +2,6 @@ package com.mydb.mydb.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mydb.mydb.SegmentConfig;
-import com.mydb.mydb.entity.Payload;
 import com.mydb.mydb.entity.Segment;
 import com.mydb.mydb.entity.SegmentIndex;
 import com.mydb.mydb.entity.SegmentMetadata;
@@ -27,7 +26,7 @@ public class FileIOService {
   public static final ObjectMapper mapper = new ObjectMapper();
 
 
-  public SegmentIndex persist(final Segment segment, final Map<String, Payload> memTable) {
+  public SegmentIndex persist(final Segment segment, final Map<String, String> memTable) {
     final Map<String, SegmentMetadata> index = new LinkedHashMap<>();
     File segmentFile = new File(segment.getSegmentPath());
     memTable.forEach((key, value) -> {
@@ -86,12 +85,12 @@ public class FileIOService {
     }
   }
 
-  public Optional<Payload> getPayload(final String path, final SegmentMetadata metadata) {
+  public Optional<String> getPayload(final String path, final SegmentMetadata metadata) {
     try {
       var in = readBytes(path, metadata);
       ByteArrayInputStream bis = new ByteArrayInputStream(in);
       ObjectInputStream ois = new ObjectInputStream(bis);
-      return Optional.of((Payload) ois.readObject());
+      return Optional.of((String) ois.readObject());
     } catch (IOException | ClassNotFoundException e) {
       e.printStackTrace();
       return Optional.empty();

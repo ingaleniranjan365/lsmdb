@@ -3,7 +3,6 @@ package com.mydb.mydb.controller;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.mydb.mydb.entity.Payload;
 import com.mydb.mydb.exception.PayloadTooLargeException;
 import com.mydb.mydb.exception.UnknownProbeException;
 import com.mydb.mydb.service.LSMService;
@@ -31,18 +30,18 @@ public class MasterController {
   }
 
   @PostMapping("/echo")
-  public ResponseEntity<Payload> echoPayload(final @RequestBody Payload payload) {
+  public ResponseEntity<String> echoPayload(final @RequestBody String payload) {
     return ResponseEntity.ok(payload);
   }
 
   @PostMapping("/persist")
-  public ResponseEntity<Payload> persistPayload(final @RequestBody Payload payload) throws IOException,
+  public ResponseEntity<String> persistPayload(final @RequestBody String payload) throws IOException,
       PayloadTooLargeException {
     return ResponseEntity.ok(lsmService.insert(payload));
   }
 
   @GetMapping("/probe/{probeId}/latest")
-  public ResponseEntity<Payload> getData(final @PathVariable("probeId") String probeId) {
+  public ResponseEntity<String> getData(final @PathVariable("probeId") String probeId) {
     try {
       return ResponseEntity.ok(lsmService.getData(probeId));
     } catch (UnknownProbeException e) {

@@ -1,6 +1,5 @@
 package com.mydb.mydb.service;
 
-import com.mydb.mydb.entity.Payload;
 import com.mydb.mydb.entity.SegmentIndex;
 import com.mydb.mydb.entity.SegmentMetadata;
 import com.mydb.mydb.entity.merge.HeapElement;
@@ -17,9 +16,7 @@ import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.PriorityQueue;
-import java.util.stream.Collectors;
 
 import static com.mydb.mydb.entity.merge.HeapElement.getHeapElementComparator;
 import static com.mydb.mydb.entity.merge.HeapElement.isProbeIdPresentInList;
