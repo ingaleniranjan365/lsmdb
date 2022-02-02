@@ -12,10 +12,13 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.util.SerializationUtils;
 
+import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
+import java.io.ObjectInputStream;
 import java.util.Arrays;
 import java.util.Map;
+import java.util.Optional;
 import java.util.TreeMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.stream.IntStream;
@@ -79,11 +82,16 @@ public class Config {
           byte[] finalWal = wal;
           IntStream.range(0, finalWal.length / LSMService.MAX_PAYLOAD_SIZE)
               .map(i -> i * LSMService.MAX_PAYLOAD_SIZE)
-              // TODO: Figure out a faster way to deserialize than to first mapping
-              //  bytes-> obj, obj -> jsonStr and then jsonStr -> Payload
               .mapToObj(i -> deserialize(finalWal, i))
-              .map(this::getJsonStr)
-              .forEach(jsonStr -> extractPayload(memTable, jsonStr));
+              .forEach(payload -> {
+                if (payload != null) {
+                  try {
+                    memTable.put(payload.getProbeId(), payload);
+                  } catch (RuntimeException e) {
+                    e.printStackTrace();
+                  }
+                }
+              });
         }
 
         try {
@@ -99,34 +107,15 @@ public class Config {
     return memTable;
   }
 
-  private Object deserialize(byte[] finalWal, int i) {
+  private Payload deserialize(byte[] finalWal, int i) {
     try {
-      return SerializationUtils.deserialize(Arrays.copyOfRange(finalWal, i, i + LSMService.MAX_PAYLOAD_SIZE));
-    } catch (IllegalArgumentException | IllegalStateException ex) {
+      var in = Arrays.copyOfRange(finalWal, i, i + LSMService.MAX_PAYLOAD_SIZE);
+      ByteArrayInputStream bis = new ByteArrayInputStream(in);
+      ObjectInputStream ois = new ObjectInputStream(bis);
+      return (Payload) ois.readObject();
+    } catch (ClassNotFoundException |  IOException | RuntimeException ex) {
       ex.printStackTrace();
       return null;
     }
   }
-
-
-  private void extractPayload(TreeMap<String, Payload> memTable, String jsonStr) {
-    if (jsonStr != null) {
-      try {
-        var payload = mapper.readValue(jsonStr, Payload.class);
-        memTable.put(payload.getProbeId(), payload);
-      } catch (JsonProcessingException | RuntimeException e) {
-        e.printStackTrace();
-      }
-    }
-  }
-
-  private String getJsonStr(Object obj) {
-    try {
-      return mapper.writeValueAsString(obj);
-    } catch (IOException | RuntimeException e) {
-      e.printStackTrace();
-      return null;
-    }
-  }
-
 }
