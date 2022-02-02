@@ -14,6 +14,8 @@ import org.springframework.util.SerializationUtils;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.nio.charset.StandardCharsets;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.List;
@@ -94,7 +96,7 @@ public class LSMService {
 
   public String insert(final String probeId, final String payload) throws PayloadTooLargeException {
     try {
-      writeAppendLog(payload);
+      writeAheadLog(payload);
     } catch (PayloadTooLargeException ex) {
       throw ex;
     } catch (RuntimeException ex) {
@@ -169,7 +171,20 @@ public class LSMService {
     }
   }
 
-  public Payload getData(String probeId) throws UnknownProbeException {
+  private void writeAheadLog(String payload) throws PayloadTooLargeException {
+    var bytes = (payload + "Sailee").getBytes(StandardCharsets.UTF_8);
+    if (bytes.length > 0) {
+      try {
+        synchronized (WAL_FILE) {
+          FileUtils.writeByteArrayToFile(WAL_FILE, bytes, true);
+        }
+      } catch (IOException e) {
+        e.printStackTrace();
+      }
+    }
+  }
+
+  public String getData(String probeId) throws UnknownProbeException {
     var data = Optional.ofNullable(memTableForRead.getOrDefault(probeId, null))
         .orElse(memTableForReadAndWrite.getOrDefault(probeId, null));
     if (data == null) {
@@ -182,7 +197,7 @@ public class LSMService {
     return data;
   }
 
-  private Payload getDataFromSegments(final String probeId) {
+  private String getDataFromSegments(final String probeId) {
 
     var segmentIndex = indices.stream().filter(x -> x.getSegmentIndex().containsKey(probeId)).findFirst().orElse(null);
     return Optional.ofNullable(segmentIndex)

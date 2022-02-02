@@ -47,7 +47,7 @@ def get_probe_ids(count: int = 10 ** 4) -> List[str]:
 
 def persist(probe_id: str):
     payload = json.dumps(get_random_payload(probe_id), indent=4)
-    r = requests.post("http://localhost:8080/api/mydb/persist", data=payload,
+    r = requests.put(f"http://localhost:8080/api/mydb/probe/{probe_id}/event/{probe_id}", data=payload,
                       headers={'content-type': 'application/json'})
     print(r.status_code, r.reason)
     if r.status_code in [200, '200']:
@@ -66,7 +66,7 @@ def durability(probe_id: str):
 
 if __name__ == '__main__':
     write_count, read_count = [0], [0]
-    probe_ids = get_probe_ids(25*(10**4))
+    probe_ids = get_probe_ids(1000)
 
     # for probe_id in probe_ids:
     #     try:

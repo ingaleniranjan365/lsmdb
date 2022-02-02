@@ -15,6 +15,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.RandomAccessFile;
+import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -31,7 +32,7 @@ public class FileIOService {
     File segmentFile = new File(segment.getSegmentPath());
     memTable.forEach((key, value) -> {
       try {
-        var bytes = SerializationUtils.serialize(value);
+        var bytes = value.getBytes(StandardCharsets.UTF_8);
         index.put(key, new SegmentMetadata((int) (segmentFile.length()), bytes.length));
         FileUtils.writeByteArrayToFile(segmentFile, bytes, true);
       } catch (RuntimeException | IOException ex) {
@@ -88,10 +89,8 @@ public class FileIOService {
   public Optional<String> getPayload(final String path, final SegmentMetadata metadata) {
     try {
       var in = readBytes(path, metadata);
-      ByteArrayInputStream bis = new ByteArrayInputStream(in);
-      ObjectInputStream ois = new ObjectInputStream(bis);
-      return Optional.of((String) ois.readObject());
-    } catch (IOException | ClassNotFoundException e) {
+      return Optional.of(new String(in));
+    } catch (IOException e) {
       e.printStackTrace();
       return Optional.empty();
     }

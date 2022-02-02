@@ -34,16 +34,11 @@ public class MasterController {
     return ResponseEntity.ok(payload);
   }
 
-  @PostMapping("/persist")
-  public ResponseEntity<String> persistPayload(final @RequestBody String payload) throws IOException,
-      PayloadTooLargeException {
-    return ResponseEntity.ok(lsmService.insert(payload));
-  }
-
   @GetMapping("/probe/{probeId}/latest")
-  public ResponseEntity<String> getData(final @PathVariable("probeId") String probeId) {
+  public ResponseEntity<JsonNode> getData(final @PathVariable("probeId") String probeId)
+      throws JsonProcessingException {
     try {
-      return ResponseEntity.ok(lsmService.getData(probeId));
+      return ResponseEntity.ok(mapper.readTree(lsmService.getData(probeId)));
     } catch (UnknownProbeException e) {
       e.printStackTrace();
       return ResponseEntity.notFound().build();
@@ -54,6 +49,6 @@ public class MasterController {
   public ResponseEntity<JsonNode> updatePayload(final @PathVariable("probeId") String probeId,
                                                 final @PathVariable("eventId") String eventId,
                                                 final @RequestBody String payload) throws JsonProcessingException {
-    return ResponseEntity.ok(mapper.readTree(payload));
+    return ResponseEntity.ok(mapper.readTree(lsmService.insert(probeId, payload)));
   }
 }

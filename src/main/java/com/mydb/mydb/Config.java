@@ -1,7 +1,7 @@
 package com.mydb.mydb;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mydb.mydb.entity.SegmentIndex;
 import com.mydb.mydb.service.FileIOService;
@@ -61,7 +61,7 @@ public class Config {
     return new ConcurrentLinkedDeque<>();
   }
 
-  @Bean("memTable")
+  @Bean("Wal")
   public Map<String, String> fromWAL() {
     var memTable = new TreeMap<String, String>();
     try {
@@ -83,7 +83,7 @@ public class Config {
               .forEach(payload -> {
                 if (payload != null) {
                   try {
-                    memTable.put(mapper.readTree(payload).get, payload);
+                    memTable.put(mapper.readTree(payload).get("probeId").toString(), payload);
                   } catch (RuntimeException | JsonProcessingException e) {
                     e.printStackTrace();
                   }
@@ -91,11 +91,7 @@ public class Config {
               });
         }
 
-        try {
-          walFile.delete();
-        } catch (SecurityException ex) {
-          ex.printStackTrace();
-        }
+        deleteWALFile(walFile);
 
       }
     } catch (RuntimeException ex) {
@@ -103,6 +99,48 @@ public class Config {
     }
     return memTable;
   }
+
+
+  @Bean("memTable")
+  public Map<String, String> getMemTableFromWAL() {
+    var memTable = new TreeMap<String , String>();
+    try {
+      var walFile = new File(DEFAULT_WAL_FILE_PATH);
+      if (walFile.exists()) {
+        byte[] wal = null;
+        try {
+          wal = FileUtils.readFileToByteArray(walFile);
+        } catch (IOException | NullPointerException e) {
+          e.printStackTrace();
+        }
+
+        if (wal != null) {
+          String finalWal = new String(wal);
+          String[] split = finalWal.split("Sailee");
+          for (String payload : split) {
+            try {
+              memTable.put(mapper.readTree(payload).get("probeId").toString().replace("\"", ""), payload);
+            } catch (JsonProcessingException exception) {
+              exception.printStackTrace();
+            }
+          }
+        }
+        deleteWALFile(walFile);
+      }
+    } catch (RuntimeException ex) {
+      ex.printStackTrace();
+    }
+    return memTable;
+  }
+
+  private void deleteWALFile(File walFile) {
+    try {
+      walFile.delete();
+    } catch (SecurityException ex) {
+      ex.printStackTrace();
+    }
+  }
+
 
   private String deserialize(byte[] finalWal, int i) {
     try {
