@@ -1,25 +1,22 @@
 package com.mydb.mydb;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mydb.mydb.entity.SegmentIndex;
 import com.mydb.mydb.service.FileIOService;
-import com.mydb.mydb.service.LSMService;
 import org.apache.commons.io.FileUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
-import java.io.ByteArrayInputStream;
 import java.io.File;
 import java.io.IOException;
-import java.io.ObjectInputStream;
-import java.util.Arrays;
+import java.util.LinkedHashMap;
 import java.util.Map;
-import java.util.TreeMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
-import java.util.stream.IntStream;
+
+import static com.mydb.mydb.service.FileIOService.DEFAULT_WAL_FILE_PATH;
+import static com.mydb.mydb.service.FileIOService.DELIMITER;
 
 @Configuration
 public class Config {
@@ -27,11 +24,15 @@ public class Config {
   public static final String PATH_TO_HOME = System.getProperty("user.home");
   public static final String CONFIG_PATH = PATH_TO_HOME + "/data/segmentState.json";
   public static final String DEFAULT_BASE_PATH = PATH_TO_HOME + "/data/segments";
-  public static final String DEFAULT_WAL_FILE_PATH = PATH_TO_HOME + "/data/segments/wal/wal";
   public static final ObjectMapper mapper = new ObjectMapper();
 
   @Autowired
   private FileIOService fileIOService;
+
+  @Bean("mapper")
+  public ObjectMapper mapper() {
+    return mapper;
+  }
 
   @Bean("segmentConfig")
   public SegmentConfig getSegmentConfig() {
@@ -61,38 +62,17 @@ public class Config {
     return new ConcurrentLinkedDeque<>();
   }
 
-  @Bean("Wal")
-  public Map<String, String> fromWAL() {
-    var memTable = new TreeMap<String, String>();
+  @Bean("memTable")
+  public Map<String, String> getMemTableFromWAL() {
+    var memTable = new LinkedHashMap<String , String>();
     try {
       var walFile = new File(DEFAULT_WAL_FILE_PATH);
       if (walFile.exists()) {
-        byte[] wal = null;
-
-        try {
-          wal = FileUtils.readFileToByteArray(walFile);
-        } catch (IOException | NullPointerException e) {
-          e.printStackTrace();
-        }
-
+        var wal = readWAL(walFile, null);
         if (wal != null) {
-          byte[] finalWal = wal;
-          IntStream.range(0, finalWal.length / LSMService.MAX_PAYLOAD_SIZE)
-              .map(i -> i * LSMService.MAX_PAYLOAD_SIZE)
-              .mapToObj(i -> deserialize(finalWal, i))
-              .forEach(payload -> {
-                if (payload != null) {
-                  try {
-                    memTable.put(mapper.readTree(payload).get("probeId").toString(), payload);
-                  } catch (RuntimeException | JsonProcessingException e) {
-                    e.printStackTrace();
-                  }
-                }
-              });
+          writeToMemory(memTable, wal);
         }
-
         deleteWALFile(walFile);
-
       }
     } catch (RuntimeException ex) {
       ex.printStackTrace();
@@ -100,37 +80,29 @@ public class Config {
     return memTable;
   }
 
-
-  @Bean("memTable")
-  public Map<String, String> getMemTableFromWAL() {
-    var memTable = new TreeMap<String , String>();
-    try {
-      var walFile = new File(DEFAULT_WAL_FILE_PATH);
-      if (walFile.exists()) {
-        byte[] wal = null;
-        try {
-          wal = FileUtils.readFileToByteArray(walFile);
-        } catch (IOException | NullPointerException e) {
-          e.printStackTrace();
-        }
-
-        if (wal != null) {
-          String finalWal = new String(wal);
-          String[] split = finalWal.split("Sailee");
-          for (String payload : split) {
-            try {
-              memTable.put(mapper.readTree(payload).get("probeId").toString().replace("\"", ""), payload);
-            } catch (JsonProcessingException exception) {
-              exception.printStackTrace();
-            }
-          }
-        }
-        deleteWALFile(walFile);
+  private void writeToMemory(Map<String, String> memTable, byte[] wal) {
+    String finalWal = new String(wal);
+    String[] split = finalWal.split(DELIMITER);
+    for (String payload : split) {
+      try {
+        memTable.put(getProbeId(payload), payload);
+      } catch (JsonProcessingException exception) {
+        exception.printStackTrace();
       }
-    } catch (RuntimeException ex) {
-      ex.printStackTrace();
     }
-    return memTable;
+  }
+
+  private byte[] readWAL(File walFile, byte[] wal) {
+    try {
+      wal = FileUtils.readFileToByteArray(walFile);
+    } catch (IOException | NullPointerException e) {
+      e.printStackTrace();
+    }
+    return wal;
+  }
+
+  private String getProbeId(String payload) throws JsonProcessingException {
+    return mapper.readTree(payload).get("probeId").toString().replace("\"", "");
   }
 
   private void deleteWALFile(File walFile) {
@@ -141,16 +113,4 @@ public class Config {
     }
   }
 
-
-  private String deserialize(byte[] finalWal, int i) {
-    try {
-      var in = Arrays.copyOfRange(finalWal, i, i + LSMService.MAX_PAYLOAD_SIZE);
-      ByteArrayInputStream bis = new ByteArrayInputStream(in);
-      ObjectInputStream ois = new ObjectInputStream(bis);
-      return (String) ois.readObject();
-    } catch (ClassNotFoundException | IOException | RuntimeException ex) {
-      ex.printStackTrace();
-      return null;
-    }
-  }
 }

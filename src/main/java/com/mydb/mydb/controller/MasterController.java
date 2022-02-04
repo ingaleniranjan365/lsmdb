@@ -3,10 +3,10 @@ package com.mydb.mydb.controller;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.mydb.mydb.exception.PayloadTooLargeException;
 import com.mydb.mydb.exception.UnknownProbeException;
 import com.mydb.mydb.service.LSMService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -15,18 +15,21 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.io.IOException;
+import java.util.concurrent.CompletableFuture;
 
 @RestController
 public class MasterController {
 
+  private final ObjectMapper mapper;
   private final LSMService lsmService;
-  private static final ObjectMapper mapper = new ObjectMapper();
-
 
   @Autowired
-  public MasterController(LSMService lsmService) {
+  public MasterController(
+      LSMService lsmService,
+      @Qualifier("mapper") ObjectMapper mapper
+  ) {
     this.lsmService = lsmService;
+    this.mapper = mapper;
   }
 
   @PostMapping("/echo")
@@ -46,9 +49,10 @@ public class MasterController {
   }
 
   @PutMapping("/probe/{probeId}/event/{eventId}")
-  public ResponseEntity<JsonNode> updatePayload(final @PathVariable("probeId") String probeId,
-                                                final @PathVariable("eventId") String eventId,
-                                                final @RequestBody String payload) throws JsonProcessingException {
-    return ResponseEntity.ok(mapper.readTree(lsmService.insert(probeId, payload)));
+  public ResponseEntity<CompletableFuture<Boolean>> updatePayload(final @PathVariable("probeId") String probeId,
+                                                                  final @PathVariable("eventId") String eventId,
+                                                                  final @RequestBody String payload)
+  {
+    return ResponseEntity.ok(lsmService.insert(probeId, payload));
   }
 }

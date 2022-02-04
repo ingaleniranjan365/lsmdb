@@ -5,8 +5,9 @@ import com.mydb.mydb.SegmentConfig;
 import com.mydb.mydb.entity.Segment;
 import com.mydb.mydb.entity.SegmentIndex;
 import com.mydb.mydb.entity.SegmentMetadata;
+import com.mydb.mydb.exception.PayloadTooLargeException;
 import org.apache.commons.io.FileUtils;
-import org.apache.commons.lang3.SerializationUtils;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayInputStream;
@@ -19,26 +20,39 @@ import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedDeque;
+
+import static com.mydb.mydb.MydbApplication.MAX_MEM_TABLE_SIZE;
+import static java.util.concurrent.CompletableFuture.supplyAsync;
 
 @Service
 public class FileIOService {
 
-  public static final ObjectMapper mapper = new ObjectMapper();
+  public static final String PATH_TO_HOME = System.getProperty("user.home");
+  public static final String DEFAULT_WAL_FILE_PATH = PATH_TO_HOME + "/data/segments/wal/wal";
+  public static final String DELIMITER = "Sailee";
+  public static final File WAL_FILE = new File(DEFAULT_WAL_FILE_PATH);
+  public final ObjectMapper mapper;
 
+  public FileIOService(@Qualifier("mapper") ObjectMapper mapper) {
+    this.mapper = mapper;
+  }
 
   public SegmentIndex persist(final Segment segment, final Map<String, String> memTable) {
     final Map<String, SegmentMetadata> index = new LinkedHashMap<>();
     File segmentFile = new File(segment.getSegmentPath());
-    memTable.forEach((key, value) -> {
-      try {
-        var bytes = value.getBytes(StandardCharsets.UTF_8);
-        index.put(key, new SegmentMetadata((int) (segmentFile.length()), bytes.length));
-        FileUtils.writeByteArrayToFile(segmentFile, bytes, true);
-      } catch (RuntimeException | IOException ex) {
-        ex.printStackTrace();
-      }
-    });
+    memTable.keySet()
+        .stream().toList().subList(0, (int) MAX_MEM_TABLE_SIZE).stream().sorted()
+        .forEach(p -> {
+          try {
+            var bytes = memTable.get(p).getBytes(StandardCharsets.UTF_8);
+            index.put(p, new SegmentMetadata(segmentFile.length(), bytes.length));
+            FileUtils.writeByteArrayToFile(segmentFile, bytes, true);
+          } catch (RuntimeException | IOException ex) {
+            ex.printStackTrace();
+          }
+        });
     return new SegmentIndex(segment, index);
   }
 
@@ -56,7 +70,7 @@ public class FileIOService {
   public byte[] readBytes(final String path, final SegmentMetadata metadata) throws IOException {
     RandomAccessFile raf = null;
     raf = new RandomAccessFile(path, "r");
-    raf.seek((long) metadata.getOffset());
+    raf.seek(metadata.getOffset());
     byte[] in = new byte[(int) metadata.getSize()];
     raf.read(in, 0, (int) metadata.getSize());
     raf.close();
@@ -96,13 +110,28 @@ public class FileIOService {
     }
   }
 
-  public void persistIndices(final String newBackupPath, final byte[] indicesBytes) {
+  public boolean persistIndices(final String newBackupPath, final byte[] indicesBytes) {
     try {
       var newIndexFile = new File(newBackupPath);
       FileUtils.writeByteArrayToFile(newIndexFile, indicesBytes);
     } catch (IOException | RuntimeException ex) {
       ex.printStackTrace();
     }
+    return true;
+  }
+
+  public CompletableFuture<Boolean> writeAheadLog(String payload) throws PayloadTooLargeException {
+    var bytes = (payload + DELIMITER).getBytes(StandardCharsets.UTF_8);
+    return supplyAsync(() -> write(bytes));
+  }
+
+  private Boolean write(byte[] bytes) {
+    try {
+      FileUtils.writeByteArrayToFile(WAL_FILE, bytes, true);
+    } catch (IOException e) {
+      e.printStackTrace();
+    }
+    return true;
   }
 
 }
