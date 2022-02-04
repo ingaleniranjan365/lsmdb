@@ -33,11 +33,8 @@ public class FileIOService {
   public static final String DEFAULT_WAL_FILE_PATH = PATH_TO_HOME + "/data/segments/wal/wal";
   public static final String DELIMITER = "Sailee";
   public static final File WAL_FILE = new File(DEFAULT_WAL_FILE_PATH);
-  public final ObjectMapper mapper;
+  public static final ObjectMapper mapper = new ObjectMapper();
 
-  public FileIOService(@Qualifier("mapper") ObjectMapper mapper) {
-    this.mapper = mapper;
-  }
 
   public SegmentIndex persist(final Segment segment, final Map<String, String> memTable) {
     final Map<String, SegmentMetadata> index = new LinkedHashMap<>();
