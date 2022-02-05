@@ -6,8 +6,8 @@ import com.mydb.mydb.entity.Segment;
 import com.mydb.mydb.entity.SegmentIndex;
 import com.mydb.mydb.entity.SegmentMetadata;
 import com.mydb.mydb.exception.PayloadTooLargeException;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayInputStream;
@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.RandomAccessFile;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -27,20 +28,19 @@ import static com.mydb.mydb.MydbApplication.MAX_MEM_TABLE_SIZE;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 
 @Service
+@Slf4j
 public class FileIOService {
 
   public static final String PATH_TO_HOME = System.getProperty("user.home");
   public static final String DEFAULT_WAL_FILE_PATH = PATH_TO_HOME + "/data/segments/wal/wal";
-  public static final String DELIMITER = "Sailee";
   public static final File WAL_FILE = new File(DEFAULT_WAL_FILE_PATH);
+  public static final String DELIMITER = "Sailee";
   public static final ObjectMapper mapper = new ObjectMapper();
-
 
   public SegmentIndex persist(final Segment segment, final Map<String, String> memTable) {
     final Map<String, SegmentMetadata> index = new LinkedHashMap<>();
     File segmentFile = new File(segment.getSegmentPath());
-    memTable.keySet()
-        .stream().toList().subList(0, (int) MAX_MEM_TABLE_SIZE).stream().sorted()
+    memTable.keySet().stream().toList().subList(0, MAX_MEM_TABLE_SIZE).stream().sorted()
         .forEach(p -> {
           try {
             var bytes = memTable.get(p).getBytes(StandardCharsets.UTF_8);
@@ -50,6 +50,7 @@ public class FileIOService {
             ex.printStackTrace();
           }
         });
+    log.info("Persist completed at : {} ", LocalDateTime.now());
     return new SegmentIndex(segment, index);
   }
 
@@ -114,6 +115,7 @@ public class FileIOService {
     } catch (IOException | RuntimeException ex) {
       ex.printStackTrace();
     }
+    log.info("persisted Indices at : {} ", LocalDateTime.now());
     return true;
   }
 

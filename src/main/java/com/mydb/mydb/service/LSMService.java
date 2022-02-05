@@ -7,7 +7,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.util.SerializationUtils;
 
@@ -43,7 +42,7 @@ public class LSMService {
     this.memTable = memTable;
   }
 
-  @Scheduled(initialDelay = 10000, fixedDelay = 15000)
+  //  @Scheduled(initialDelay = 10000, fixedDelay = 15000)
   public void merge() throws IOException {
     log.info("**************\nStarting scheduled merging!\n******************");
     var segmentEnumeration = getSegmentIndexEnumeration();

@@ -5,7 +5,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mydb.mydb.entity.SegmentIndex;
 import com.mydb.mydb.service.FileIOService;
 import org.apache.commons.io.FileUtils;
+import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cloud.sleuth.instrument.async.LazyTraceExecutor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -14,6 +16,8 @@ import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
 import static com.mydb.mydb.service.FileIOService.DEFAULT_WAL_FILE_PATH;
 import static com.mydb.mydb.service.FileIOService.DELIMITER;
@@ -28,6 +32,12 @@ public class Config {
 
   @Autowired
   private FileIOService fileIOService;
+
+  @Bean("segmentExecutor")
+  public Executor segmentExecutor(final BeanFactory beanFactory) {
+    var executor = Executors.newFixedThreadPool(1);
+    return new LazyTraceExecutor(beanFactory, executor);
+  }
 
   @Bean("mapper")
   public ObjectMapper mapper() {
@@ -64,7 +74,7 @@ public class Config {
 
   @Bean("memTable")
   public Map<String, String> getMemTableFromWAL() {
-    var memTable = new LinkedHashMap<String , String>();
+    var memTable = new LinkedHashMap<String, String>();
     try {
       var walFile = new File(DEFAULT_WAL_FILE_PATH);
       if (walFile.exists()) {
