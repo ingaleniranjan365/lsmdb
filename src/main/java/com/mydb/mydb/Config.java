@@ -5,19 +5,17 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mydb.mydb.entity.SegmentIndex;
 import com.mydb.mydb.service.FileIOService;
 import org.apache.commons.io.FileUtils;
-import org.springframework.beans.factory.BeanFactory;
+import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cloud.sleuth.instrument.async.LazyTraceExecutor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.LinkedHashMap;
+import java.util.Deque;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
 
 import static com.mydb.mydb.service.FileIOService.DEFAULT_WAL_FILE_PATH;
 import static com.mydb.mydb.service.FileIOService.DELIMITER;
@@ -32,12 +30,6 @@ public class Config {
 
   @Autowired
   private FileIOService fileIOService;
-
-  @Bean("segmentExecutor")
-  public Executor segmentExecutor(final BeanFactory beanFactory) {
-    var executor = Executors.newFixedThreadPool(1);
-    return new LazyTraceExecutor(beanFactory, executor);
-  }
 
   @Bean("mapper")
   public ObjectMapper mapper() {
@@ -56,7 +48,7 @@ public class Config {
   }
 
   @Bean("indices")
-  public ConcurrentLinkedDeque<SegmentIndex> getIndices() {
+  public Deque<SegmentIndex> getIndices() {
     var segmentConfig = fileIOService.getSegmentConfig(CONFIG_PATH);
     if (segmentConfig.isPresent()) {
       var counter = segmentConfig.get().getCount();
@@ -72,30 +64,33 @@ public class Config {
     return new ConcurrentLinkedDeque<>();
   }
 
-  @Bean("memTable")
-  public Map<String, String> getMemTableFromWAL() {
-    var memTable = new LinkedHashMap<String, String>();
+  @Bean("memTableData")
+  public ImmutablePair<Deque<String>, Map<String, String>> getMemTableDataFromWAL() {
+    var memTable = new ConcurrentHashMap<String, String>();
+    var probeIds = new ConcurrentLinkedDeque<String>();
     try {
       var walFile = new File(DEFAULT_WAL_FILE_PATH);
       if (walFile.exists()) {
         var wal = readWAL(walFile, null);
         if (wal != null) {
-          writeToMemory(memTable, wal);
+          writeToMemory(probeIds, memTable, wal);
         }
         deleteWALFile(walFile);
       }
     } catch (RuntimeException ex) {
       ex.printStackTrace();
     }
-    return memTable;
+    return new ImmutablePair<>(probeIds, memTable);
   }
 
-  private void writeToMemory(Map<String, String> memTable, byte[] wal) {
+  private void writeToMemory(Deque<String> probeIds, Map<String, String> memTable, byte[] wal) {
     String finalWal = new String(wal);
     String[] split = finalWal.split(DELIMITER);
     for (String payload : split) {
       try {
-        memTable.put(getProbeId(payload), payload);
+        var probeId = getProbeId(payload);
+        memTable.put(probeId, payload);
+        probeIds.addLast(probeId);
       } catch (JsonProcessingException exception) {
         exception.printStackTrace();
       }

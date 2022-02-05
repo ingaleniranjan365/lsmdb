@@ -51,8 +51,7 @@ public class MasterController {
   @PutMapping("/probe/{probeId}/event/{eventId}")
   public ResponseEntity<CompletableFuture<Boolean>> updatePayload(final @PathVariable("probeId") String probeId,
                                                                   final @PathVariable("eventId") String eventId,
-                                                                  final @RequestBody String payload)
-  {
+                                                                  final @RequestBody String payload) {
     return ResponseEntity.ok(lsmService.insert(probeId, payload));
   }
 }

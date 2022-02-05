@@ -10,7 +10,7 @@ import java.io.File;
 @SpringBootApplication
 public class MydbApplication {
 
-  public static int MAX_MEM_TABLE_SIZE = 100;
+  public static int MAX_MEM_TABLE_SIZE = 1000;
 
   public static void main(String[] args) {
     if (args.length > 0)

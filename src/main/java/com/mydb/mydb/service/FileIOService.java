@@ -5,7 +5,6 @@ import com.mydb.mydb.SegmentConfig;
 import com.mydb.mydb.entity.Segment;
 import com.mydb.mydb.entity.SegmentIndex;
 import com.mydb.mydb.entity.SegmentMetadata;
-import com.mydb.mydb.exception.PayloadTooLargeException;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
 import org.springframework.stereotype.Service;
@@ -17,7 +16,7 @@ import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.RandomAccessFile;
 import java.nio.charset.StandardCharsets;
-import java.time.LocalDateTime;
+import java.util.Deque;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -37,10 +36,14 @@ public class FileIOService {
   public static final String DELIMITER = "Sailee";
   public static final ObjectMapper mapper = new ObjectMapper();
 
-  public SegmentIndex persist(final Segment segment, final Map<String, String> memTable) {
+  public SegmentIndex persist(
+      final Segment segment,
+      final Deque<String> probeIds,
+      final Map<String, String> memTable
+  ) {
     final Map<String, SegmentMetadata> index = new LinkedHashMap<>();
     File segmentFile = new File(segment.getSegmentPath());
-    memTable.keySet().stream().toList().subList(0, MAX_MEM_TABLE_SIZE).stream().sorted()
+    probeIds.stream().toList().subList(0, MAX_MEM_TABLE_SIZE).stream().sorted()
         .forEach(p -> {
           try {
             var bytes = memTable.get(p).getBytes(StandardCharsets.UTF_8);
@@ -50,7 +53,6 @@ public class FileIOService {
             ex.printStackTrace();
           }
         });
-    log.info("Persist completed at : {} ", LocalDateTime.now());
     return new SegmentIndex(segment, index);
   }
 
@@ -85,7 +87,7 @@ public class FileIOService {
     }
   }
 
-  public Optional<ConcurrentLinkedDeque<SegmentIndex>> getIndices(String path) {
+  public Optional<Deque<SegmentIndex>> getIndices(String path) {
     try {
       File file = new File(path);
       var in = FileUtils.readFileToByteArray(file);
@@ -115,11 +117,10 @@ public class FileIOService {
     } catch (IOException | RuntimeException ex) {
       ex.printStackTrace();
     }
-    log.info("persisted Indices at : {} ", LocalDateTime.now());
     return true;
   }
 
-  public CompletableFuture<Boolean> writeAheadLog(String payload) throws PayloadTooLargeException {
+  public CompletableFuture<Boolean> writeAheadLog(String payload) {
     var bytes = (payload + DELIMITER).getBytes(StandardCharsets.UTF_8);
     return supplyAsync(() -> write(bytes));
   }

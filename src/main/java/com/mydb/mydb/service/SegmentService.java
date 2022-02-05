@@ -24,7 +24,7 @@ public class SegmentService {
     return new SegmentConfig(segmentConfig.getBasePath(), segmentConfig.getCount());
   }
 
-  public synchronized Segment getNewSegment() {
+  public Segment getNewSegment() {
     segmentConfig.setCount(segmentConfig.getCount() + 1);
     var newSegmentName = getSegmentName(segmentConfig.getCount());
     var newSegmentPath = getPathForSegment(newSegmentName);

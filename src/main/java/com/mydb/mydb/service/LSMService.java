@@ -7,17 +7,18 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.util.SerializationUtils;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.Collections;
+import java.util.Deque;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.stream.IntStream;
 
 @Slf4j
@@ -27,12 +28,12 @@ public class LSMService {
   private final FileIOService fileIOService;
   private final SegmentService segmentService;
   private final MergeService mergeService;
-  private final ConcurrentLinkedDeque<SegmentIndex> indices;
+  private final Deque<SegmentIndex> indices;
   private final Sailee memTable;
 
   @Autowired
   public LSMService(Sailee memTable,
-                    @Qualifier("indices") ConcurrentLinkedDeque<SegmentIndex> indices, FileIOService fileIOService,
+                    @Qualifier("indices") Deque<SegmentIndex> indices, FileIOService fileIOService,
                     SegmentService segmentService, MergeService mergeService
   ) {
     this.fileIOService = fileIOService;
@@ -42,7 +43,7 @@ public class LSMService {
     this.memTable = memTable;
   }
 
-  //  @Scheduled(initialDelay = 10000, fixedDelay = 15000)
+  @Scheduled(initialDelay = 10000, fixedDelay = 15000)
   public void merge() throws IOException {
     log.info("**************\nStarting scheduled merging!\n******************");
     var segmentEnumeration = getSegmentIndexEnumeration();

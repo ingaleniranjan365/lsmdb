@@ -5,13 +5,13 @@ import com.mydb.mydb.service.FileIOService;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Component;
 
+import java.util.Deque;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentLinkedDeque;
-import java.util.concurrent.Executor;
 
 @Component
 @Getter
@@ -19,30 +19,35 @@ import java.util.concurrent.Executor;
 @Slf4j
 public class Sailee {
 
-  private final Executor executor;
-  private ConcurrentLinkedDeque<SegmentIndex> indices;
-  private Map<String, String> memTable;
+  private Deque<SegmentIndex> indices;
   private SegmentGenerator generator;
   private FileIOService fileIOService;
+  private Deque<String> probeIds;
+  private Map<String, String> memTable;
 
   public Sailee(
-      @Qualifier("memTable") Map<String, String> memTable,
-      @Qualifier("indices") ConcurrentLinkedDeque<SegmentIndex> indices,
+      @Qualifier("memTableData") ImmutablePair<Deque<String>, Map<String, String>> memTableData,
+      @Qualifier("indices") Deque<SegmentIndex> indices,
       FileIOService fileIOService,
-      SegmentGenerator generator,
-      @Qualifier("segmentExecutor") Executor executor
+      SegmentGenerator generator
   ) {
     this.indices = indices;
-    this.memTable = memTable;
     this.fileIOService = fileIOService;
     this.generator = generator;
-    this.executor = executor;
+    this.probeIds = memTableData.getLeft();
+    this.memTable = memTableData.getRight();
   }
 
   public CompletableFuture<Boolean> persist(final String probeId, final String payload) {
     return fileIOService.writeAheadLog(payload)
-        .thenApply(b -> memTable.put(probeId, payload))
-        .thenApply(b -> generator.update(indices, memTable));
+        .thenApply(b -> put(probeId, payload))
+        .thenApply(b -> generator.update(indices, probeIds, memTable));
+  }
+
+  private boolean put(final String probeId, final String payload) {
+    probeIds.addLast(probeId);
+    memTable.put(probeId, payload);
+    return true;
   }
 
   public String get(final String probeId) {
