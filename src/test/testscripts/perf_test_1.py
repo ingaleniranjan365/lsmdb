@@ -66,7 +66,7 @@ def durability(probe_id: str):
 
 if __name__ == '__main__':
     write_count, read_count = [0], [0]
-    probe_ids = get_probe_ids(1344)
+    probe_ids = get_probe_ids(1000)
 
     # for probe_id in probe_ids:
     #     try:
@@ -86,6 +86,7 @@ if __name__ == '__main__':
 
     start_w = time.time()
     try:
+        Parallel(n_jobs=6, require='sharedmem')(delayed(persist)(probe_id) for probe_id in probe_ids)
         Parallel(n_jobs=6, require='sharedmem')(delayed(persist)(probe_id) for probe_id in probe_ids)
     except Exception as e:
         print(e)

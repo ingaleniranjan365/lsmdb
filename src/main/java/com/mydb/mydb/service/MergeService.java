@@ -18,6 +18,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.PriorityQueue;
 
+import static com.mydb.mydb.MydbApplication.MAX_MEM_TABLE_SIZE;
 import static com.mydb.mydb.entity.merge.HeapElement.getHeapElementComparator;
 import static com.mydb.mydb.entity.merge.HeapElement.isProbeIdPresentInList;
 
@@ -26,19 +27,21 @@ import static com.mydb.mydb.entity.merge.HeapElement.isProbeIdPresentInList;
 public class MergeService {
 
   private final FileIOService fileIOService;
+  private final SegmentService segmentService;
 
   @Autowired
-  public MergeService(FileIOService fileIOService) {
+  public MergeService(FileIOService fileIOService, SegmentService segmentService) {
     this.fileIOService = fileIOService;
+    this.segmentService = segmentService;
   }
 
-  public Map<String, SegmentMetadata> merge(
-      List<ImmutablePair<Enumeration<String>, SegmentIndex>> segmentIndexEnumeration,
-      final String mergeSegmentPath
-  )
+  public List<SegmentIndex> merge(
+      List<ImmutablePair<Enumeration<String>, SegmentIndex>> segmentIndexEnumeration)
       throws IOException {
-    var mergeSegment = new File(mergeSegmentPath);
-    final Map<String, SegmentMetadata> mergedSegmentIndex = new LinkedHashMap<>();
+    var mergeSegment = segmentService.getNewSegment();
+    var mergeSegmentFile = new File(mergeSegment.getSegmentPath());
+    var segmentIndices = new LinkedList<SegmentIndex>();
+    Map<String, SegmentMetadata> mergedSegmentIndex = new LinkedHashMap<>();
     var heap = new PriorityQueue<>(getHeapElementComparator());
 
     heap.addAll(getSeedElements(segmentIndexEnumeration));
@@ -54,13 +57,18 @@ public class MergeService {
           segmentIndex.getSegment().getSegmentPath(),
           segmentIndex.getSegmentIndex().get(candidate.getProbeId())
       );
-      mergedSegmentIndex.put(candidate.getProbeId(), new SegmentMetadata(mergeSegment.length(), in.length));
-      FileUtils.writeByteArrayToFile(mergeSegment, in, true);
+      mergedSegmentIndex.put(candidate.getProbeId(), new SegmentMetadata(mergeSegmentFile.length(), in.length));
+      FileUtils.writeByteArrayToFile(mergeSegmentFile, in, true);
 
+      if(mergedSegmentIndex.size() >= MAX_MEM_TABLE_SIZE) {
+        segmentIndices.add(new SegmentIndex(mergeSegment, mergedSegmentIndex));
+        mergedSegmentIndex =  new LinkedHashMap<String, SegmentMetadata>();
+        mergeSegment = segmentService.getNewSegment();
+      }
       addNextHeapElementForSegment(segmentIndexEnumeration, heap, candidate);
       last = candidate;
     }
-    return mergedSegmentIndex;
+    return segmentIndices;
   }
 
   private HeapElement findNextCandidate(List<ImmutablePair<Enumeration<String>, SegmentIndex>> segmentIndexEnumeration,

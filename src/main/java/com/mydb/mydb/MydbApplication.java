@@ -28,5 +28,4 @@ public class MydbApplication {
       ex.printStackTrace();
     }
   }
-
 }
