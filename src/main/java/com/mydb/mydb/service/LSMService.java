@@ -53,7 +53,7 @@ public class LSMService {
         .filter(i -> new File(segmentService.getPathForSegment(i.getRight().getSegment().getSegmentName())).exists())
         .toList();
     if (segmentEnumeration.size() > 1) {
-      var mergedSegmentIndices = mergeService.merge(segmentEnumeration);
+      var mergedSegmentIndices = mergeService.merge(validSegmentEnumeration);
       mergedSegmentIndices.forEach(indices::addFirst);
       IntStream.range(0, segmentIndexCountToBeRemoved)
           .forEach(x -> indices.removeAll(getIndicesForMergedSegments(segmentEnumeration)));
