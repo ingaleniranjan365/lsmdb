@@ -77,6 +77,7 @@ public class SegmentGenerator {
   }
 
   private void updateIndices(Deque<SegmentIndex> indices, SegmentIndex s) {
+    // TODO: Fix this
     indices.addFirst(s);
   }
 
