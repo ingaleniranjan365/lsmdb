@@ -19,7 +19,7 @@ import java.util.concurrent.Executor;
 @Getter
 @Setter
 @Slf4j
-public class Sailee {
+public class MemTableWrapper {
 
   private Deque<SegmentIndex> indices;
   private SegmentGenerator generator;
@@ -29,7 +29,7 @@ public class Sailee {
   private Executor executor;
   private boolean useFixedThreadPool;
 
-  public Sailee(
+  public MemTableWrapper(
       @Qualifier("memTableData") ImmutablePair<Deque<String>, Map<String, String>> memTableData,
       @Qualifier("indices") Deque<SegmentIndex> indices,
       FileIOService fileIOService,

@@ -1,6 +1,6 @@
 package com.mydb.mydb.service;
 
-import com.mydb.mydb.entity.Sailee;
+import com.mydb.mydb.entity.MemTableWrapper;
 import com.mydb.mydb.entity.SegmentIndex;
 import com.mydb.mydb.exception.DeplomaticUntilReinforcements;
 import com.mydb.mydb.exception.UnknownProbeException;
@@ -32,11 +32,11 @@ public class LSMService {
   private final SegmentService segmentService;
   private final MergeService mergeService;
   private final Deque<SegmentIndex> indices;
-  private final Sailee memTable;
+  private final MemTableWrapper memTable;
   private final int memTableHardLimit;
 
   @Autowired
-  public LSMService(Sailee memTable,
+  public LSMService(MemTableWrapper memTable,
                     @Qualifier("indices") Deque<SegmentIndex> indices, FileIOService fileIOService,
                     SegmentService segmentService, MergeService mergeService,
                     @Value("${config.memTableHardLimit}") int memTableHardLimit
