@@ -1,11 +1,12 @@
 server:
   port: 8080
-  servlet:
-    context-path:  "/api/mydb/"
   tomcat:
     threads:
       max: 250
 
 config:
   threadPoolSize: 250
+  useFixedThreadPool: false
+  flushMultipleRanges: true
   memTableHardLimit: 2000000
+  memTableSoftLimit: 50000

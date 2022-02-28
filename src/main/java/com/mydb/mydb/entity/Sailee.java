@@ -7,11 +7,13 @@ import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.util.Deque;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
 
 @Component
 @Getter
@@ -24,21 +26,32 @@ public class Sailee {
   private FileIOService fileIOService;
   private Deque<String> probeIds;
   private Map<String, String> memTable;
+  private Executor executor;
+  private boolean useFixedThreadPool;
 
   public Sailee(
       @Qualifier("memTableData") ImmutablePair<Deque<String>, Map<String, String>> memTableData,
       @Qualifier("indices") Deque<SegmentIndex> indices,
       FileIOService fileIOService,
-      SegmentGenerator generator
+      SegmentGenerator generator,
+      @Qualifier("fixedThreadPool") Executor executor,
+      @Value("${config.useFixedThreadPool}") boolean useFixedThreadPool
   ) {
     this.indices = indices;
     this.fileIOService = fileIOService;
     this.generator = generator;
     this.probeIds = memTableData.getLeft();
     this.memTable = memTableData.getRight();
+    this.executor = executor;
+    this.useFixedThreadPool = useFixedThreadPool;
   }
 
   public CompletableFuture<Boolean> persist(final String probeId, final String payload) {
+    if(useFixedThreadPool) {
+      return fileIOService.writeAheadLog(payload, executor)
+          .thenApply(b -> put(probeId, payload))
+          .thenApply(b -> generator.update(indices, probeIds, memTable));
+    }
     return fileIOService.writeAheadLog(payload)
         .thenApply(b -> put(probeId, payload))
         .thenApply(b -> generator.update(indices, probeIds, memTable));

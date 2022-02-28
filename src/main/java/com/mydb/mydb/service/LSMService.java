@@ -2,12 +2,13 @@ package com.mydb.mydb.service;
 
 import com.mydb.mydb.entity.Sailee;
 import com.mydb.mydb.entity.SegmentIndex;
-import com.mydb.mydb.exception.OutOfMemoryException;
+import com.mydb.mydb.exception.DeplomaticUntilReinforcements;
 import com.mydb.mydb.exception.UnknownProbeException;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.util.SerializationUtils;
@@ -32,17 +33,20 @@ public class LSMService {
   private final MergeService mergeService;
   private final Deque<SegmentIndex> indices;
   private final Sailee memTable;
+  private final int memTableHardLimit;
 
   @Autowired
   public LSMService(Sailee memTable,
                     @Qualifier("indices") Deque<SegmentIndex> indices, FileIOService fileIOService,
-                    SegmentService segmentService, MergeService mergeService
+                    SegmentService segmentService, MergeService mergeService,
+                    @Value("${config.memTableHardLimit}") int memTableHardLimit
   ) {
     this.fileIOService = fileIOService;
     this.segmentService = segmentService;
     this.mergeService = mergeService;
     this.indices = indices;
     this.memTable = memTable;
+    this.memTableHardLimit = memTableHardLimit;
   }
 
   @Scheduled(initialDelay = 10000, fixedDelay = 15000)
@@ -89,8 +93,8 @@ public class LSMService {
   }
 
   public CompletableFuture<Boolean> insert(final String probeId, final String payload) {
-    if(memTable.getMemTable().size() >= 2000000){
-      throw new OutOfMemoryException("All write requests will be ignored " +
+    if(memTable.getMemTable().size() >= memTableHardLimit){
+      throw new DeplomaticUntilReinforcements("All write requests will be ignored " +
           "until memory becomes available!");
     }
     return memTable.persist(probeId, payload);

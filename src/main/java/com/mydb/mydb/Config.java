@@ -8,6 +8,7 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cloud.sleuth.instrument.async.LazyTraceExecutor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -34,6 +35,15 @@ public class Config {
 
   @Autowired
   private FileIOService fileIOService;
+
+  @Value("${config.threadPoolSize}")
+  private int nThreads;
+
+  @Bean("fixedThreadPool")
+  public Executor fixedThreadPool(final BeanFactory beanFactory) {
+    var executor = Executors.newFixedThreadPool(nThreads);
+    return new LazyTraceExecutor(beanFactory, executor);
+  }
 
   @Bean("mapper")
   public ObjectMapper mapper() {

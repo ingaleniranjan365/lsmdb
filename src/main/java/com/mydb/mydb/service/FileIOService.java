@@ -7,6 +7,7 @@ import com.mydb.mydb.entity.SegmentIndex;
 import com.mydb.mydb.entity.SegmentMetadata;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayInputStream;
@@ -22,8 +23,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.Executor;
 
-import static com.mydb.mydb.MydbApplication.MAX_MEM_TABLE_SIZE;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 
 @Service
@@ -40,11 +41,11 @@ public class FileIOService {
       final Segment segment,
       final Deque<String> probeIds,
       final Map<String, String> memTable,
-      final int size
-  ) {
+      final ImmutablePair<Integer, Integer> range
+      ) {
     final Map<String, SegmentMetadata> index = new LinkedHashMap<>();
     File segmentFile = new File(segment.getSegmentPath());
-    probeIds.stream().toList().subList(0, size).stream().sorted()
+    probeIds.stream().toList().subList(range.left, range.right).stream().sorted()
         .forEach(p -> {
           try {
             var bytes = memTable.get(p).getBytes(StandardCharsets.UTF_8);
@@ -124,6 +125,11 @@ public class FileIOService {
   public CompletableFuture<Boolean> writeAheadLog(String payload) {
     var bytes = (payload + DELIMITER).getBytes(StandardCharsets.UTF_8);
     return supplyAsync(() -> write(bytes));
+  }
+
+  public CompletableFuture<Boolean> writeAheadLog(String payload, Executor executor) {
+    var bytes = (payload + DELIMITER).getBytes(StandardCharsets.UTF_8);
+    return supplyAsync(() -> write(bytes), executor);
   }
 
   private Boolean write(byte[] bytes) {
