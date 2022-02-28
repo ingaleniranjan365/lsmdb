@@ -10,3 +10,4 @@ config:
   flushMultipleRanges: true
   memTableHardLimit: 2000000
   memTableSoftLimit: 50000
+  disableWal: false

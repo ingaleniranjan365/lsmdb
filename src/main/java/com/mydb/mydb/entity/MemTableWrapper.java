@@ -15,6 +15,8 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 
+import static java.util.concurrent.CompletableFuture.supplyAsync;
+
 @Component
 @Getter
 @Setter
@@ -28,6 +30,7 @@ public class MemTableWrapper {
   private Map<String, String> memTable;
   private Executor executor;
   private boolean useFixedThreadPool;
+  private boolean disableWal;
 
   public MemTableWrapper(
       @Qualifier("memTableData") ImmutablePair<Deque<String>, Map<String, String>> memTableData,
@@ -35,7 +38,8 @@ public class MemTableWrapper {
       FileIOService fileIOService,
       SegmentGenerator generator,
       @Qualifier("fixedThreadPool") Executor executor,
-      @Value("${config.useFixedThreadPool}") boolean useFixedThreadPool
+      @Value("${config.useFixedThreadPool}") boolean useFixedThreadPool,
+      @Value("${config.disableWal}") boolean disableWal
   ) {
     this.indices = indices;
     this.fileIOService = fileIOService;
@@ -44,9 +48,18 @@ public class MemTableWrapper {
     this.memTable = memTableData.getRight();
     this.executor = executor;
     this.useFixedThreadPool = useFixedThreadPool;
+    this.disableWal = disableWal;
   }
 
   public CompletableFuture<Boolean> persist(final String probeId, final String payload) {
+    if(disableWal) {
+      if(useFixedThreadPool) {
+        return supplyAsync(() -> put(probeId, payload), executor)
+            .thenApply(b -> generator.update(indices, probeIds, memTable));
+      }
+      return supplyAsync(() -> put(probeId, payload))
+          .thenApply(b -> generator.update(indices, probeIds, memTable));
+    }
     if(useFixedThreadPool) {
       return fileIOService.writeAheadLog(payload, executor)
           .thenApply(b -> put(probeId, payload))
