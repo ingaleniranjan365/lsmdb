@@ -39,11 +39,12 @@ public class FileIOService {
   public SegmentIndex persist(
       final Segment segment,
       final Deque<String> probeIds,
-      final Map<String, String> memTable
+      final Map<String, String> memTable,
+      final int size
   ) {
     final Map<String, SegmentMetadata> index = new LinkedHashMap<>();
     File segmentFile = new File(segment.getSegmentPath());
-    probeIds.stream().toList().subList(0, MAX_MEM_TABLE_SIZE).stream().sorted()
+    probeIds.stream().toList().subList(0, size).stream().sorted()
         .forEach(p -> {
           try {
             var bytes = memTable.get(p).getBytes(StandardCharsets.UTF_8);

@@ -50,9 +50,10 @@ public class SegmentGenerator {
       try {
         if (isMemTableFull(memTable)) {
           var segment = segmentService.getNewSegment();
-          var index = fileIOService.persist(segment, probeIds, memTable);
+          var size = memTable.size();
+          var index = fileIOService.persist(segment, probeIds, memTable, size);
           updateIndices(indices, index);
-          clearMemTable(probeIds, memTable);
+          clearMemTable(probeIds, memTable, size);
           supplyAsync(
               () -> fileIOService.persistIndices(segment.getBackupPath(), SerializationUtils.serialize(indices)) &&
                   WAL_FILE.delete());
@@ -68,16 +69,16 @@ public class SegmentGenerator {
 
   private void clearMemTable(
       Deque<String> probeIds,
-      Map<String, String> memTable
+      Map<String, String> memTable,
+      int size
   ) {
-    IntStream.range(0, MAX_MEM_TABLE_SIZE).forEach(i -> {
+    IntStream.range(0, size).forEach(i -> {
       var probeId = probeIds.remove();
       memTable.remove(probeId);
     });
   }
 
   private void updateIndices(Deque<SegmentIndex> indices, SegmentIndex s) {
-    // TODO: Fix this
     indices.addFirst(s);
   }
 

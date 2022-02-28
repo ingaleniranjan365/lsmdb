@@ -6,7 +6,9 @@ import com.mydb.mydb.entity.SegmentIndex;
 import com.mydb.mydb.service.FileIOService;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.springframework.beans.factory.BeanFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.cloud.sleuth.instrument.async.LazyTraceExecutor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -16,6 +18,8 @@ import java.util.Deque;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 
 import static com.mydb.mydb.service.FileIOService.DEFAULT_WAL_FILE_PATH;
 import static com.mydb.mydb.service.FileIOService.DELIMITER;

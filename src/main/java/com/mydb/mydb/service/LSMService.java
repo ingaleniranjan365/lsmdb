@@ -2,6 +2,7 @@ package com.mydb.mydb.service;
 
 import com.mydb.mydb.entity.Sailee;
 import com.mydb.mydb.entity.SegmentIndex;
+import com.mydb.mydb.exception.OutOfMemoryException;
 import com.mydb.mydb.exception.UnknownProbeException;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.ImmutablePair;
@@ -19,6 +20,7 @@ import java.util.Enumeration;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 @Slf4j
@@ -46,24 +48,28 @@ public class LSMService {
   @Scheduled(initialDelay = 10000, fixedDelay = 15000)
   public void merge() throws IOException {
     log.info("**************\nStarting scheduled merging!\n******************");
-    var segmentEnumeration = getSegmentIndexEnumeration();
+    final var segmentEnumeration = getSegmentIndexEnumeration();
     var segmentIndexCountToBeRemoved = segmentEnumeration.size();
     var mergeSegment = segmentService.getNewSegment();
-    segmentEnumeration = segmentEnumeration.stream()
+    final var validSegmentEnumeration = segmentEnumeration.stream()
         .filter(i -> new File(segmentService.getPathForSegment(i.getRight().getSegment().getSegmentName())).exists())
         .toList();
-    if (segmentEnumeration.size() > 1) {
-      var mergedSegmentIndex = mergeService.merge(segmentEnumeration, mergeSegment.getSegmentPath());
+    if (validSegmentEnumeration.size() > 1) {
+      var mergedSegmentIndex = mergeService.merge(validSegmentEnumeration, mergeSegment.getSegmentPath());
 
-      // TODO: Fix this
-      IntStream.range(0, segmentIndexCountToBeRemoved).forEach(x -> indices.removeLast());
       indices.addLast(new SegmentIndex(mergeSegment, mergedSegmentIndex));
+      IntStream.range(0, segmentIndexCountToBeRemoved)
+          .forEach(x -> indices.removeAll(getIndicesForMergedSegments(validSegmentEnumeration)));
 
       fileIOService.persistIndices(mergeSegment.getBackupPath(), SerializationUtils.serialize(indices));
-      deleteMergedSegments(segmentEnumeration);
+      deleteMergedSegments(validSegmentEnumeration);
     }
   }
 
+  private List<SegmentIndex> getIndicesForMergedSegments(
+      List<ImmutablePair<Enumeration<String>, SegmentIndex>> segmentEnumeration) {
+    return segmentEnumeration.stream().map(ImmutablePair::getRight).collect(Collectors.toList());
+  }
   private void deleteMergedSegments(
       final List<ImmutablePair<Enumeration<String>, SegmentIndex>> segmentIndexEnumeration) {
     segmentIndexEnumeration.parallelStream().map(x -> x.getRight().getSegment())
@@ -83,6 +89,10 @@ public class LSMService {
   }
 
   public CompletableFuture<Boolean> insert(final String probeId, final String payload) {
+    if(memTable.getMemTable().size() >= 2000000){
+      throw new OutOfMemoryException("All write requests will be ignored " +
+          "until memory becomes available!");
+    }
     return memTable.persist(probeId, payload);
   }
 
