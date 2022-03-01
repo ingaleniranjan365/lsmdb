@@ -33,20 +33,18 @@ public class LSMService {
   private final MergeService mergeService;
   private final Deque<SegmentIndex> indices;
   private final MemTableWrapper memTable;
-  private final int memTableHardLimit;
+  public static boolean hardLimitReached = false;
 
   @Autowired
   public LSMService(MemTableWrapper memTable,
                     @Qualifier("indices") Deque<SegmentIndex> indices, FileIOService fileIOService,
-                    SegmentService segmentService, MergeService mergeService,
-                    @Value("${config.memTableHardLimit}") int memTableHardLimit
+                    SegmentService segmentService, MergeService mergeService
   ) {
     this.fileIOService = fileIOService;
     this.segmentService = segmentService;
     this.mergeService = mergeService;
     this.indices = indices;
     this.memTable = memTable;
-    this.memTableHardLimit = memTableHardLimit;
   }
 
   @Scheduled(initialDelay = 10000, fixedDelay = 15000)
@@ -66,7 +64,7 @@ public class LSMService {
           .forEach(x -> indices.removeAll(getIndicesForMergedSegments(validSegmentEnumeration)));
 
       fileIOService.persistIndices(mergeSegment.getBackupPath(), SerializationUtils.serialize(indices));
-      deleteMergedSegments(validSegmentEnumeration);
+      deleteMergedSegments(segmentEnumeration);
     }
   }
 
@@ -79,8 +77,8 @@ public class LSMService {
     segmentIndexEnumeration.parallelStream().map(x -> x.getRight().getSegment())
         .forEach(segment -> {
           try {
-            new File(segment.getSegmentPath()).delete();
             new File(segment.getBackupPath()).delete();
+            new File(segment.getSegmentPath()).delete();
           } catch (RuntimeException exception) {
             exception.printStackTrace();
           }
@@ -93,7 +91,7 @@ public class LSMService {
   }
 
   public CompletableFuture<Boolean> insert(final String probeId, final String payload) {
-    if(memTable.getMemTable().size() >= memTableHardLimit){
+    if(hardLimitReached){
       throw new DeplomaticUntilReinforcements("All write requests will be ignored " +
           "until memory becomes available!");
     }

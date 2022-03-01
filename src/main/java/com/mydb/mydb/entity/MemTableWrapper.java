@@ -13,6 +13,7 @@ import org.springframework.stereotype.Component;
 import java.util.Deque;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.Executor;
 
 import static java.util.concurrent.CompletableFuture.supplyAsync;
@@ -27,13 +28,13 @@ public class MemTableWrapper {
   private SegmentGenerator generator;
   private FileIOService fileIOService;
   private Deque<String> probeIds;
-  private Map<String, String> memTable;
+  private Map<String, Deque<String>> memTable;
   private Executor executor;
   private boolean useFixedThreadPool;
   private boolean disableWal;
 
   public MemTableWrapper(
-      @Qualifier("memTableData") ImmutablePair<Deque<String>, Map<String, String>> memTableData,
+      @Qualifier("memTableData") ImmutablePair<Deque<String>, Map<String, Deque<String>>> memTableData,
       @Qualifier("indices") Deque<SegmentIndex> indices,
       FileIOService fileIOService,
       SegmentGenerator generator,
@@ -71,12 +72,22 @@ public class MemTableWrapper {
   }
 
   private boolean put(final String probeId, final String payload) {
-    if(!memTable.containsKey(probeId)) probeIds.addLast(probeId);
-    memTable.put(probeId, payload);
+    probeIds.addLast(probeId);
+    if(memTable.containsKey(probeId)) {
+      memTable.get(probeId).addLast(payload);
+    } else {
+      var list = new ConcurrentLinkedDeque<String>();
+      list.addLast(payload);
+      memTable.put(probeId, list);
+    }
     return true;
   }
 
   public String get(final String probeId) {
-    return memTable.getOrDefault(probeId, null);
+    var list = memTable.getOrDefault(probeId, null);
+    if(list!=null && !list.isEmpty()) {
+      return list.getLast();
+    }
+    return null;
   }
 }

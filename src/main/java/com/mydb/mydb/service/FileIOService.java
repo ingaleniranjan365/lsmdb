@@ -40,7 +40,7 @@ public class FileIOService {
   public SegmentIndex persist(
       final Segment segment,
       final Deque<String> probeIds,
-      final Map<String, String> memTable,
+      final Map<String, Deque<String>> memTable,
       final ImmutablePair<Integer, Integer> range
       ) {
     final Map<String, SegmentMetadata> index = new LinkedHashMap<>();
@@ -48,9 +48,12 @@ public class FileIOService {
     probeIds.stream().toList().subList(range.left, range.right).stream().sorted()
         .forEach(p -> {
           try {
-            var bytes = memTable.get(p).getBytes(StandardCharsets.UTF_8);
-            index.put(p, new SegmentMetadata(segmentFile.length(), bytes.length));
-            FileUtils.writeByteArrayToFile(segmentFile, bytes, true);
+            var list = memTable.get(p);
+            if(!list.isEmpty()) {
+              var bytes = list.removeFirst().getBytes(StandardCharsets.UTF_8);
+              index.put(p, new SegmentMetadata(segmentFile.length(), bytes.length));
+              FileUtils.writeByteArrayToFile(segmentFile, bytes, true);
+            }
           } catch (RuntimeException | IOException ex) {
             ex.printStackTrace();
           }

@@ -2,6 +2,7 @@ package com.mydb.mydb.entity.merge;
 
 import com.mydb.mydb.entity.SegmentIndex;
 import com.mydb.mydb.service.FileIOService;
+import com.mydb.mydb.service.LSMService;
 import com.mydb.mydb.service.SegmentService;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.ImmutablePair;
@@ -34,13 +35,15 @@ public class SegmentGenerator {
   private final Executor executor;
   private final boolean useFixedThreadPool;
   private final int memTableSoftLimit;
+  private final int memTableHardLimit;
 
   @Autowired
   public SegmentGenerator(FileIOService fileIOService, SegmentService segmentService,
                           @Value("${config.flushMultipleRanges}") boolean flushMultipleRanges,
                           @Qualifier("fixedThreadPool") Executor executor,
                           @Value("${config.useFixedThreadPool}") boolean useFixedThreadPool,
-                          @Value("${config.memTableSoftLimit}") int memTableSoftLimit
+                          @Value("${config.memTableSoftLimit}") int memTableSoftLimit,
+                          @Value("${config.memTableHardLimit}") int memTableHardLimit
   ) {
     this.fileIOService = fileIOService;
     this.segmentService = segmentService;
@@ -48,12 +51,13 @@ public class SegmentGenerator {
     this.executor = executor;
     this.useFixedThreadPool = useFixedThreadPool;
     this.memTableSoftLimit = memTableSoftLimit;
+    this.memTableHardLimit = memTableHardLimit;
   }
 
   public boolean update(
       Deque<SegmentIndex> indices,
       Deque<String> probeIds,
-      Map<String, String> memTable
+      Map<String, Deque<String>> memTable
   ) {
     if(useFixedThreadPool) {
       supplyAsync(() -> generate(indices, probeIds, memTable), executor);
@@ -66,7 +70,7 @@ public class SegmentGenerator {
   private boolean generate(
       Deque<SegmentIndex> indices,
       Deque<String> probeIds,
-      Map<String, String> memTable
+      Map<String, Deque<String>> memTable
   ) {
     if (lock.tryLock()) {
       try {
@@ -102,7 +106,7 @@ public class SegmentGenerator {
   private void persist(
       final Deque<SegmentIndex> indices,
       final Deque<String> probeIds,
-      final Map<String, String> memTable
+      final Map<String, Deque<String>> memTable
   ) {
     LinkedList<ImmutablePair<Integer, Integer>> ranges = getRanges(memTable);
 
@@ -130,7 +134,7 @@ public class SegmentGenerator {
     WAL_FILE.delete();
   }
 
-  private LinkedList<ImmutablePair<Integer, Integer>> getRanges(Map<String, String> memTable) {
+  private LinkedList<ImmutablePair<Integer, Integer>> getRanges(Map<String, Deque<String>> memTable) {
     var ranges = new LinkedList<ImmutablePair<Integer, Integer>>();
     var size = memTable.size();
     var start = 0;
@@ -145,12 +149,13 @@ public class SegmentGenerator {
 
   private void clearMemTable(
       Deque<String> probeIds,
-      Map<String, String> memTable,
+      Map<String, Deque<String>> memTable,
       ImmutablePair<Integer, Integer> range
   ) {
     IntStream.range(range.left, range.right).forEach(i -> {
-      var probeId = probeIds.remove();
-      memTable.remove(probeId);
+      var probeId = probeIds.removeFirst();
+      var list = memTable.get(probeId);
+      list.removeFirst();
     });
   }
 
@@ -158,8 +163,10 @@ public class SegmentGenerator {
     indices.addFirst(s);
   }
 
-  private boolean isMemTableFull(final Map<String, String> memTable) {
-    return memTable.size() >= memTableSoftLimit;
+  private boolean isMemTableFull(final Map<String, Deque<String>> memTable) {
+    int payloadCount = memTable.keySet().stream().map(k -> memTable.get(k).size()).reduce(0, Integer::sum);
+    LSMService.hardLimitReached = payloadCount >= memTableHardLimit;
+    return payloadCount >= memTableSoftLimit;
   }
 
 }

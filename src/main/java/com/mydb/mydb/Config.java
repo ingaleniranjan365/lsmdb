@@ -16,6 +16,8 @@ import org.springframework.context.annotation.Configuration;
 import java.io.File;
 import java.io.IOException;
 import java.util.Deque;
+import java.util.LinkedList;
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
@@ -79,8 +81,8 @@ public class Config {
   }
 
   @Bean("memTableData")
-  public ImmutablePair<Deque<String>, Map<String, String>> getMemTableDataFromWAL() {
-    var memTable = new ConcurrentHashMap<String, String>();
+  public ImmutablePair<Deque<String>, Map<String, Deque<String>>> getMemTableDataFromWAL() {
+    var memTable = new ConcurrentHashMap<String, Deque<String>>();
     var probeIds = new ConcurrentLinkedDeque<String>();
     try {
       var walFile = new File(DEFAULT_WAL_FILE_PATH);
@@ -97,13 +99,19 @@ public class Config {
     return new ImmutablePair<>(probeIds, memTable);
   }
 
-  private void writeToMemory(Deque<String> probeIds, Map<String, String> memTable, byte[] wal) {
+  private void writeToMemory(Deque<String> probeIds, Map<String, Deque<String>> memTable, byte[] wal) {
     String finalWal = new String(wal);
     String[] split = finalWal.split(DELIMITER);
     for (String payload : split) {
       try {
         var probeId = getProbeId(payload);
-        memTable.put(probeId, payload);
+        if(memTable.containsKey(probeId)){
+          memTable.get(probeId).addLast(payload);
+        } else {
+          var list = new ConcurrentLinkedDeque<String>();
+          list.addLast(payload);
+          memTable.put(probeId, list);
+        }
         probeIds.addLast(probeId);
       } catch (JsonProcessingException exception) {
         exception.printStackTrace();
