@@ -16,8 +16,6 @@ import org.springframework.context.annotation.Configuration;
 import java.io.File;
 import java.io.IOException;
 import java.util.Deque;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
@@ -105,7 +103,7 @@ public class Config {
     for (String payload : split) {
       try {
         var probeId = getProbeId(payload);
-        if(memTable.containsKey(probeId)){
+        if (memTable.containsKey(probeId)) {
           memTable.get(probeId).addLast(payload);
         } else {
           var list = new ConcurrentLinkedDeque<String>();

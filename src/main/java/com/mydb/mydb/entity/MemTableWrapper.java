@@ -53,15 +53,15 @@ public class MemTableWrapper {
   }
 
   public CompletableFuture<Boolean> persist(final String probeId, final String payload) {
-    if(disableWal) {
-      if(useFixedThreadPool) {
+    if (disableWal) {
+      if (useFixedThreadPool) {
         return supplyAsync(() -> put(probeId, payload), executor)
             .thenApply(b -> generator.update(indices, probeIds, memTable));
       }
       return supplyAsync(() -> put(probeId, payload))
           .thenApply(b -> generator.update(indices, probeIds, memTable));
     }
-    if(useFixedThreadPool) {
+    if (useFixedThreadPool) {
       return fileIOService.writeAheadLog(payload, executor)
           .thenApply(b -> put(probeId, payload))
           .thenApply(b -> generator.update(indices, probeIds, memTable));
@@ -73,7 +73,7 @@ public class MemTableWrapper {
 
   private boolean put(final String probeId, final String payload) {
     probeIds.addLast(probeId);
-    if(memTable.containsKey(probeId)) {
+    if (memTable.containsKey(probeId)) {
       memTable.get(probeId).addLast(payload);
     } else {
       var list = new ConcurrentLinkedDeque<String>();
@@ -85,7 +85,7 @@ public class MemTableWrapper {
 
   public String get(final String probeId) {
     var list = memTable.getOrDefault(probeId, null);
-    if(list!=null && !list.isEmpty()) {
+    if (list != null && !list.isEmpty()) {
       return list.getLast();
     }
     return null;

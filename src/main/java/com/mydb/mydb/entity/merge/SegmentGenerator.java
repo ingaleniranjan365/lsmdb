@@ -59,7 +59,7 @@ public class SegmentGenerator {
       Deque<String> probeIds,
       Map<String, Deque<String>> memTable
   ) {
-    if(useFixedThreadPool) {
+    if (useFixedThreadPool) {
       supplyAsync(() -> generate(indices, probeIds, memTable), executor);
     } else {
       supplyAsync(() -> generate(indices, probeIds, memTable));
@@ -74,16 +74,16 @@ public class SegmentGenerator {
   ) {
     if (lock.tryLock()) {
       try {
-        if (isMemTableFull(memTable)) {
-          if(flushMultipleRanges) {
-            persist(indices, probeIds, memTable);
+        final var size = probeIds.size();
+        if (isMemTableFull(size)) {
+          if (flushMultipleRanges) {
+            persist(indices, probeIds, memTable, size);
           } else {
             var segment = segmentService.getNewSegment();
-            var size = memTable.size();
             var index = fileIOService.persist(segment, probeIds, memTable, ImmutablePair.of(0, size));
             updateIndices(indices, index);
-            clearMemTable(probeIds, memTable, ImmutablePair.of(0, size));
-            if(useFixedThreadPool) {
+            clearProbeIds(probeIds, ImmutablePair.of(0, size));
+            if (useFixedThreadPool) {
               supplyAsync(
                   () -> fileIOService.persistIndices(segment.getBackupPath(), SerializationUtils.serialize(indices)) &&
                       WAL_FILE.delete(), executor);
@@ -106,22 +106,26 @@ public class SegmentGenerator {
   private void persist(
       final Deque<SegmentIndex> indices,
       final Deque<String> probeIds,
-      final Map<String, Deque<String>> memTable
+      final Map<String, Deque<String>> memTable,
+      final int size
   ) {
-    LinkedList<ImmutablePair<Integer, Integer>> ranges = getRanges(memTable);
+    LinkedList<ImmutablePair<Integer, Integer>> ranges = getRanges(size);
 
     ranges.stream()
         .map(range -> ImmutablePair.of(range, segmentService.getNewSegment()))
         .map(pair -> {
-          if(useFixedThreadPool) {
-            return supplyAsync(() -> ImmutablePair.of(fileIOService.persist(pair.right, probeIds, memTable, pair.left), pair.right), executor);
+          if (useFixedThreadPool) {
+            return supplyAsync(
+                () -> ImmutablePair.of(fileIOService.persist(pair.right, probeIds, memTable, pair.left), pair.right),
+                executor);
           }
-          return supplyAsync(() -> ImmutablePair.of(fileIOService.persist(pair.right, probeIds, memTable, pair.left), pair.right));
+          return supplyAsync(
+              () -> ImmutablePair.of(fileIOService.persist(pair.right, probeIds, memTable, pair.left), pair.right));
         })
         .map(CompletableFuture::join)
         .forEach(pair -> {
           updateIndices(indices, pair.left);
-          if(useFixedThreadPool) {
+          if (useFixedThreadPool) {
             supplyAsync(() -> fileIOService.persistIndices(pair.right.getBackupPath(),
                 SerializationUtils.serialize(indices)), executor);
           } else {
@@ -130,16 +134,15 @@ public class SegmentGenerator {
           }
         });
 
-    clearMemTable(probeIds, memTable, ImmutablePair.of(0, ranges.getLast().right));
+    clearProbeIds(probeIds, ImmutablePair.of(0, ranges.getLast().right));
     WAL_FILE.delete();
   }
 
-  private LinkedList<ImmutablePair<Integer, Integer>> getRanges(Map<String, Deque<String>> memTable) {
+  private LinkedList<ImmutablePair<Integer, Integer>> getRanges(int size) {
     var ranges = new LinkedList<ImmutablePair<Integer, Integer>>();
-    var size = memTable.size();
     var start = 0;
     var end = memTableSoftLimit;
-    while(size >= end) {
+    while (size >= end) {
       ranges.add(ImmutablePair.of(start, end));
       start = end + 1;
       end += memTableSoftLimit;
@@ -147,24 +150,25 @@ public class SegmentGenerator {
     return ranges;
   }
 
-  private void clearMemTable(
+  private void clearProbeIds(
       Deque<String> probeIds,
-      Map<String, Deque<String>> memTable,
       ImmutablePair<Integer, Integer> range
   ) {
-    IntStream.range(range.left, range.right).forEach(i -> {
-      var probeId = probeIds.removeFirst();
-      var list = memTable.get(probeId);
-      list.removeFirst();
-    });
+    IntStream.range(range.left, range.right + 1).forEach( i -> {
+          try {
+            probeIds.removeFirst();
+          } catch (Exception ex) {
+            ex.printStackTrace();
+          }
+      }
+    );
   }
 
   private void updateIndices(Deque<SegmentIndex> indices, SegmentIndex s) {
     indices.addFirst(s);
   }
 
-  private boolean isMemTableFull(final Map<String, Deque<String>> memTable) {
-    int payloadCount = memTable.keySet().stream().map(k -> memTable.get(k).size()).reduce(0, Integer::sum);
+  private boolean isMemTableFull(final int payloadCount) {
     LSMService.hardLimitReached = payloadCount >= memTableHardLimit;
     return payloadCount >= memTableSoftLimit;
   }

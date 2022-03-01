@@ -42,14 +42,14 @@ public class FileIOService {
       final Deque<String> probeIds,
       final Map<String, Deque<String>> memTable,
       final ImmutablePair<Integer, Integer> range
-      ) {
+  ) {
     final Map<String, SegmentMetadata> index = new LinkedHashMap<>();
     File segmentFile = new File(segment.getSegmentPath());
-    probeIds.stream().toList().subList(range.left, range.right).stream().sorted()
+    probeIds.stream().toList().subList(range.left, range.right + 1).stream().sorted()
         .forEach(p -> {
           try {
-            var list = memTable.get(p);
-            if(!list.isEmpty()) {
+            var list = memTable.getOrDefault(p, null);
+            if (list!=null && !list.isEmpty()) {
               var bytes = list.removeFirst().getBytes(StandardCharsets.UTF_8);
               index.put(p, new SegmentMetadata(segmentFile.length(), bytes.length));
               FileUtils.writeByteArrayToFile(segmentFile, bytes, true);

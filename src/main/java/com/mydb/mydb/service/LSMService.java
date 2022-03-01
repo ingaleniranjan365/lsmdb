@@ -8,7 +8,6 @@ import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.util.SerializationUtils;
@@ -28,12 +27,12 @@ import java.util.stream.IntStream;
 @Service
 public class LSMService {
 
+  public static boolean hardLimitReached = false;
   private final FileIOService fileIOService;
   private final SegmentService segmentService;
   private final MergeService mergeService;
   private final Deque<SegmentIndex> indices;
   private final MemTableWrapper memTable;
-  public static boolean hardLimitReached = false;
 
   @Autowired
   public LSMService(MemTableWrapper memTable,
@@ -72,6 +71,7 @@ public class LSMService {
       List<ImmutablePair<Enumeration<String>, SegmentIndex>> segmentEnumeration) {
     return segmentEnumeration.stream().map(ImmutablePair::getRight).collect(Collectors.toList());
   }
+
   private void deleteMergedSegments(
       final List<ImmutablePair<Enumeration<String>, SegmentIndex>> segmentIndexEnumeration) {
     segmentIndexEnumeration.parallelStream().map(x -> x.getRight().getSegment())
@@ -91,7 +91,7 @@ public class LSMService {
   }
 
   public CompletableFuture<Boolean> insert(final String probeId, final String payload) {
-    if(hardLimitReached){
+    if (hardLimitReached) {
       throw new DeplomaticUntilReinforcements("All write requests will be ignored " +
           "until memory becomes available!");
     }
