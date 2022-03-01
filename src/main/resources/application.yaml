@@ -9,5 +9,5 @@ config:
   useFixedThreadPool: false
   flushMultipleRanges: true
   memTableHardLimit: 2000000
-  memTableSoftLimit: 50000
+  memTableSoftLimit: 100000
   disableWal: false

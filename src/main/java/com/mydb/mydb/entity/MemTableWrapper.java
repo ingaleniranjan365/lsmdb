@@ -71,7 +71,7 @@ public class MemTableWrapper {
   }
 
   private boolean put(final String probeId, final String payload) {
-    probeIds.addLast(probeId);
+    if(!memTable.containsKey(probeId)) probeIds.addLast(probeId);
     memTable.put(probeId, payload);
     return true;
   }

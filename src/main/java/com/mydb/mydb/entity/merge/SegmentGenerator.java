@@ -31,10 +31,9 @@ public class SegmentGenerator {
   private final SegmentService segmentService;
   private final Lock lock = new ReentrantLock();
   private final boolean flushMultipleRanges;
-  private Executor executor;
-  private boolean useFixedThreadPool;
-  private int memTableSoftLimit = 100;
-
+  private final Executor executor;
+  private final boolean useFixedThreadPool;
+  private final int memTableSoftLimit;
 
   @Autowired
   public SegmentGenerator(FileIOService fileIOService, SegmentService segmentService,
