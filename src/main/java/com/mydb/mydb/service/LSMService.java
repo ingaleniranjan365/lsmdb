@@ -48,7 +48,7 @@ public class LSMService {
 
   @Scheduled(initialDelay = 10000, fixedDelay = 15000)
   public void merge() throws IOException {
-    log.info("**************\nStarting scheduled merging!\n******************");
+//    log.info("**************\nStarting scheduled merging!\n******************");
     final var segmentEnumeration = getSegmentIndexEnumeration();
     var segmentIndexCountToBeRemoved = segmentEnumeration.size();
     var mergeSegment = segmentService.getNewSegment();
