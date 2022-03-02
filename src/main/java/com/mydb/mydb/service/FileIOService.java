@@ -34,7 +34,7 @@ public class FileIOService {
   public static final String PATH_TO_HOME = System.getProperty("user.home");
   public static final String DEFAULT_WAL_FILE_PATH = PATH_TO_HOME + "/data/segments/wal/wal";
   public static final File WAL_FILE = new File(DEFAULT_WAL_FILE_PATH);
-  public static final String DELIMITER = "Sailee";
+  public static final String DELIMITER = "!@#$%^&*()_+~/*-+.";
   public static final ObjectMapper mapper = new ObjectMapper();
 
   public SegmentIndex persist(
