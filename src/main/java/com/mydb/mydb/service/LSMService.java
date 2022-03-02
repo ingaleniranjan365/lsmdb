@@ -46,7 +46,7 @@ public class LSMService {
     this.memTable = memTable;
   }
 
-  @Scheduled(initialDelay = 10000, fixedDelay = 15000)
+  @Scheduled(initialDelay = 10000, fixedDelay = 60000)
   public void merge() throws IOException {
 //    log.info("**************\nStarting scheduled merging!\n******************");
     final var segmentEnumeration = getSegmentIndexEnumeration();
