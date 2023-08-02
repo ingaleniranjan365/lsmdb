@@ -1,7 +1,7 @@
 plugins {
-	id 'org.springframework.boot' version '2.6.2'
-	id 'io.spring.dependency-management' version '1.0.11.RELEASE'
-	id 'java'
+    id 'org.springframework.boot' version '2.7.14'
+    id 'io.spring.dependency-management' version '1.0.11.RELEASE'
+    id 'java'
 }
 
 group = 'com.mydb'
@@ -9,45 +9,45 @@ version = '0.0.1-SNAPSHOT'
 sourceCompatibility = '17'
 
 ext {
-	springBootVersion = '2.6.1'
-	springSecurityVersion = '5.6.0'
-	springCloudVersion = '3.1.0'
-	lombokVersion = '1.18.22'
+    springBootVersion = '2.7.14'
+    vertxVersion = '4.4.0'
 }
 
 repositories {
-	mavenCentral()
+    mavenCentral()
 }
 
 dependencies {
-	annotationProcessor "org.projectlombok:lombok:$lombokVersion"
-	implementation "org.projectlombok:lombok:$lombokVersion"
-	implementation "org.springframework.boot:spring-boot-starter-validation:$springBootVersion"
-	implementation "org.springframework.boot:spring-boot-starter-web:$springBootVersion"
-	implementation group: 'org.springframework.boot', name: 'spring-boot-devtools', version: '2.6.2'
-	implementation 'org.springframework.boot:spring-boot-starter'
-	implementation "org.springframework.boot:spring-boot-starter-actuator:$springBootVersion"
-	implementation group: 'com.google.code.gson', name: 'gson', version: '2.8.9'
-	implementation group: 'com.google.guava', name: 'guava', version: '31.0.1-jre'
-	implementation group: 'commons-io', name: 'commons-io', version: '2.11.0'
-	implementation group: 'org.apache.commons', name: 'commons-lang3', version: '3.12.0'
-	implementation group: 'org.springframework.cloud', name: 'spring-cloud-sleuth-zipkin', version: '3.1.0'
-	testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    implementation "org.springframework.boot:spring-boot-starter-web:$springBootVersion"
+    implementation "org.springframework.boot:spring-boot-starter"
+    implementation "org.springframework.boot:spring-boot-starter-actuator:$springBootVersion"
+
+    implementation "io.vertx:vertx-core:$vertxVersion"
+    implementation "io.vertx:vertx-web:$vertxVersion"
+    implementation group: "io.vertx", name: "vertx-config", version: vertxVersion
+    implementation "io.vertx:vertx-micrometer-metrics:$vertxVersion"
+
+    implementation group: "org.apache.commons", name: "commons-lang3", version: "3.12.0"
+    implementation group: "commons-io", name: "commons-io", version: "2.11.0"
+    implementation "org.quartz-scheduler:quartz:2.3.2"
+
+    implementation "org.projectlombok:lombok:1.18.22"
+    annotationProcessor "org.projectlombok:lombok:1.18.22"
 }
 
 jar {
 
-	duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 
-	manifest {
-		attributes "Main-Class": "com.mydb.mydb.MydbApplication"
-	}
+    manifest {
+        attributes "Main-Class": "com.lsmdb.Main"
+    }
 
-	from {
-		configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
-	}
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
 }
 
 test {
-	useJUnitPlatform()
+    useJUnitPlatform()
 }
