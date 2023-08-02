@@ -13,6 +13,8 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentLinkedDeque;
 
+import static java.util.concurrent.CompletableFuture.supplyAsync;
+
 @Getter
 @Setter
 @Slf4j

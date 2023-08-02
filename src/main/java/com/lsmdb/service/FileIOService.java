@@ -17,7 +17,6 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.RandomAccessFile;
-import java.nio.charset.StandardCharsets;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.Map;
@@ -29,12 +28,6 @@ import static java.util.concurrent.CompletableFuture.supplyAsync;
 @Slf4j
 public class FileIOService {
 
-        public static final String PATH_TO_HOME = System.getProperty("user.home");
-        public static final String DEFAULT_WAL_FILE_PATH = PATH_TO_HOME + "/wal/wal";
-        public static final File WAL_FILE = new File(DEFAULT_WAL_FILE_PATH);
-        public static final String STAGED_WAL_FILE_PATH = PATH_TO_HOME + "/wal/wal_backup";
-        public static final File STAGED_WAL_FILE = new File(STAGED_WAL_FILE_PATH);
-        public static final byte[] DELIMITER = "----".getBytes(StandardCharsets.UTF_8);
         public static final ObjectMapper mapper = new ObjectMapper();
 
         public SegmentIndex persist(
@@ -133,18 +126,9 @@ public class FileIOService {
                 }
         }
 
-        public CompletableFuture<Boolean> writeAheadLog(Buffer payload) {
-                var buffer = payload.appendBytes(DELIMITER);
-                return supplyAsync(() -> write(buffer.getBytes()));
-        }
-
-        private boolean write(byte[] bytes) {
-                try {
-                        FileUtils.writeByteArrayToFile(WAL_FILE, bytes, true);
-                } catch (IOException e) {
-                        e.printStackTrace();
-                }
-                return true;
+        public CompletableFuture<Void> writeAheadLog(Buffer payload) {
+                // TODO : implement write ahead log, this is a dummy impl
+                return supplyAsync(() -> null);
         }
 
 }

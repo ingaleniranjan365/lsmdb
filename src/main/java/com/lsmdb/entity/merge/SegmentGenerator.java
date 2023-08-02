@@ -86,9 +86,6 @@ public class SegmentGenerator {
 
     clearIds(ids, ImmutablePair.of(0, ranges.getLast().right));
     updateHardLimitBreach(ids.size());
-
-    FileIOService.STAGED_WAL_FILE.delete();
-    FileIOService.WAL_FILE.renameTo(FileIOService.STAGED_WAL_FILE);
   }
 
   private void clearIds(
