@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.Instant;
 import java.util.concurrent.CompletableFuture;
 
 @RestController
@@ -33,9 +34,11 @@ public class MasterController {
                 }
         }
 
-        @PutMapping("/element/{id}")
-        public ResponseEntity<CompletableFuture<Boolean>> updatePayload(final @PathVariable("id") String id,
-                                                                        final @RequestBody String payload) {
-                return ResponseEntity.ok(lsmService.insert(id, Buffer.buffer(payload)));
+        @PutMapping("/element/{id}/timestamp/{timestamp}")
+        public ResponseEntity<CompletableFuture<Void>> updatePayload(final @PathVariable("id") String id,
+                                                                        final @PathVariable("timestamp") Instant instant,
+                                                                        final @RequestBody String payload
+        ) {
+                return ResponseEntity.ok(lsmService.insert(id, instant, Buffer.buffer(payload)));
         }
 }

@@ -18,5 +18,5 @@ public class SegmentIndex implements Serializable {
 
   private Segment segment;
 
-  private Map<String, SegmentMetadata> segmentIndex;
+  private Map<String, Metadata> index;
 }

@@ -29,12 +29,12 @@ public class HttpRoutes {
     addRoutes(router);
 
     return router;
-  }
+  } 
 
   private void addRoutes(final Router router) {
     router.route("/*").failureHandler(handleServerErrors());
 
-    router.route(HttpMethod.PUT, "/element/:id")
+    router.route(HttpMethod.PUT, "/element/:id/timestamp/:timestamp")
         .handler(handler::handleUpdate);
 
     router.route(HttpMethod.GET, "/latest/element/:id")

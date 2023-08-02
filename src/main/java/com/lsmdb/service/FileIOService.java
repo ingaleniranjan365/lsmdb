@@ -2,9 +2,9 @@ package com.lsmdb.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.lsmdb.SegmentConfig;
+import com.lsmdb.entity.Metadata;
 import com.lsmdb.entity.Segment;
 import com.lsmdb.entity.SegmentIndex;
-import com.lsmdb.entity.SegmentMetadata;
 import io.vertx.core.buffer.Buffer;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
@@ -17,13 +17,10 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.RandomAccessFile;
-import java.util.Deque;
+import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.CompletableFuture;
-
-import static java.util.concurrent.CompletableFuture.supplyAsync;
 
 @Slf4j
 public class FileIOService {
@@ -32,26 +29,20 @@ public class FileIOService {
 
         public SegmentIndex persist(
                 final Segment segment,
-                final Deque<String> ids,
-                final Map<String, Deque<Buffer>> memTable,
-                final ImmutablePair<Integer, Integer> range
+                final Map<String, ImmutablePair<Instant, Buffer>> memTable
         ) {
-                final Map<String, SegmentMetadata> index = new HashMap<>();
+                final Map<String, Metadata> index = new HashMap<>();
                 var segmentBuffer = Buffer.buffer();
-                ids.stream().toList().subList(range.left, range.right).stream().sorted()
-                        .forEach(p -> {
-                                try {
-                                        var list = memTable.getOrDefault(p, null);
-                                        if (list != null) {
-                                                var payload = list.removeFirst();
-                                                index.put(p,
-                                                        new SegmentMetadata(segmentBuffer.length(), payload.length()));
-                                                segmentBuffer.appendBuffer(payload);
-                                        }
-                                } catch (RuntimeException ex) {
-                                        ex.printStackTrace();
-                                }
-                        });
+
+                for (Map.Entry<String, ImmutablePair<Instant, Buffer>> entry : memTable.entrySet()) {
+                        var id = entry.getKey();
+                        var instant = entry.getValue().left;
+                        var value = entry.getValue().right;
+                        var metadata = new Metadata(segmentBuffer.length(), value.length(), instant);
+                        segmentBuffer.appendBuffer(value);
+                        index.put(id, metadata);
+                }
+
                 File segmentFile = new File(segment.getSegmentPath());
                 try {
                         FileUtils.writeByteArrayToFile(segmentFile, segmentBuffer.getBytes(), true);
@@ -74,7 +65,7 @@ public class FileIOService {
                 }
         }
 
-        public byte[] readBytes(final String path, final SegmentMetadata metadata) throws IOException {
+        public byte[] readBytes(final String path, final Metadata metadata) throws IOException {
                 RandomAccessFile raf = null;
                 raf = new RandomAccessFile(path, "r");
                 raf.seek(metadata.getOffset());
@@ -107,10 +98,10 @@ public class FileIOService {
                 }
         }
 
-        public Optional<String> getPayload(final String path, final SegmentMetadata metadata) {
+        public Optional<Buffer> getPayload(final String path, final Metadata metadata) {
                 try {
                         var in = readBytes(path, metadata);
-                        return Optional.of(new String(in));
+                        return Optional.of(Buffer.buffer(in));
                 } catch (IOException e) {
                         e.printStackTrace();
                         return Optional.empty();
@@ -126,9 +117,9 @@ public class FileIOService {
                 }
         }
 
-        public CompletableFuture<Void> writeAheadLog(Buffer payload) {
+        public boolean writeAheadLog(Buffer payload) {
                 // TODO : implement write ahead log, this is a dummy impl
-                return supplyAsync(() -> null);
+                return true;
         }
 
 }

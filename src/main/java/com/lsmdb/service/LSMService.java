@@ -12,11 +12,11 @@ import org.springframework.util.SerializationUtils;
 
 import java.io.File;
 import java.io.IOException;
+import java.time.Instant;
 import java.util.Collections;
 import java.util.Deque;
 import java.util.Enumeration;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -85,38 +85,19 @@ public class LSMService {
 
         public List<ImmutablePair<Enumeration<String>, SegmentIndex>> getSegmentIndexEnumeration() {
                 return indices.stream()
-                        .map(j -> ImmutablePair.of(Collections.enumeration(j.getSegmentIndex().keySet()), j)).toList();
+                        .map(j -> ImmutablePair.of(Collections.enumeration(j.getIndex().keySet()), j)).toList();
         }
 
-        public CompletableFuture<Boolean> insert(final String id, final Buffer payload) {
+        public CompletableFuture<Void> insert(final String id, final Instant timestamp, final Buffer payload) {
                 if (hardLimitBreached) {
                         throw new HardLimitBreachedException("All write requests will be ignored " +
                                 "until memory becomes available!");
                 }
-                return memTable.persist(id, payload);
+                return memTable.persist(id, timestamp, payload);
         }
 
         public String getData(String id) throws ElementNotFoundException {
-                var data = memTable.get(id);
-                if (data == null) {
-                        var dataFromSegments = getDataFromSegments(id);
-                        if (dataFromSegments == null) {
-                                throw new ElementNotFoundException(String.format("id - %s not found!", id));
-                        }
-                        return dataFromSegments;
-                }
-                return data.toString();
-        }
-
-        private String getDataFromSegments(final String id) {
-
-                var segmentIndex =
-                        indices.stream().filter(x -> x.getSegmentIndex().containsKey(id)).findFirst().orElse(null);
-                return Optional.ofNullable(segmentIndex)
-                        .map(i -> segmentService.getPathForSegment(i.getSegment().getSegmentName()))
-                        .map(p -> fileIOService.getPayload(p, segmentIndex.getSegmentIndex().get(id)))
-                        .filter(Optional::isPresent)
-                        .map(Optional::get)
-                        .orElse(null);
+                var data = memTable.getData(id);
+                return data.orElseThrow(() -> new ElementNotFoundException(String.format("id - %s not found!", id)));
         }
 }

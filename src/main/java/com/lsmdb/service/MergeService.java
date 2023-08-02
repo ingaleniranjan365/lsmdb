@@ -1,7 +1,7 @@
 package com.lsmdb.service;
 
 import com.lsmdb.entity.SegmentIndex;
-import com.lsmdb.entity.SegmentMetadata;
+import com.lsmdb.entity.Metadata;
 import com.lsmdb.entity.merge.HeapElement;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
@@ -26,13 +26,13 @@ public class MergeService {
                 this.fileIOService = fileIOService;
         }
 
-        public Map<String, SegmentMetadata> merge(
+        public Map<String, Metadata> merge(
                 List<ImmutablePair<Enumeration<String>, SegmentIndex>> segmentIndexEnumeration,
                 final String mergeSegmentPath
         )
                 throws IOException {
                 var mergeSegment = new File(mergeSegmentPath);
-                final Map<String, SegmentMetadata> mergedSegmentIndex = new LinkedHashMap<>();
+                final Map<String, Metadata> mergedSegmentIndex = new LinkedHashMap<>();
                 var heap = new PriorityQueue<>(getHeapElementComparator());
 
                 heap.addAll(getSeedElements(segmentIndexEnumeration));
@@ -44,12 +44,13 @@ public class MergeService {
                                 break;
                         }
                         var segmentIndex = segmentIndexEnumeration.get(candidate.getIndex()).right;
+                        var metadata = segmentIndex.getIndex().get(candidate.getId());
                         var in = fileIOService.readBytes(
                                 segmentIndex.getSegment().getSegmentPath(),
-                                segmentIndex.getSegmentIndex().get(candidate.getIds())
+                                metadata
                         );
-                        mergedSegmentIndex.put(candidate.getIds(),
-                                new SegmentMetadata(mergeSegment.length(), in.length));
+                        mergedSegmentIndex.put(candidate.getId(),
+                                new Metadata(mergeSegment.length(), in.length, metadata.getInstant()));
                         FileUtils.writeByteArrayToFile(mergeSegment, in, true);
 
                         addNextHeapElementForSegment(segmentIndexEnumeration, heap, candidate);
@@ -62,7 +63,7 @@ public class MergeService {
                 List<ImmutablePair<Enumeration<String>, SegmentIndex>> segmentIndexEnumeration,
                 PriorityQueue<HeapElement> heap, HeapElement last) {
                 var next = heap.remove();
-                while (next.getIds().equals(last.getIds())) {
+                while (next.getId().equals(last.getId())) {
                         addNextHeapElementForSegment(segmentIndexEnumeration, heap, next);
                         if (heap.isEmpty()) {
                                 break;
@@ -74,7 +75,7 @@ public class MergeService {
 
         private boolean couldNotFindNextElementToProcess(PriorityQueue<HeapElement> heap, HeapElement last,
                                                          HeapElement next) {
-                return heap.isEmpty() && next.getIds().equals(last.getIds());
+                return heap.isEmpty() && next.getId().equals(last.getId());
         }
 
         private void addNextHeapElementForSegment(
@@ -92,7 +93,7 @@ public class MergeService {
                 int itr = 0;
                 while (itr < segmentIndexEnumeration.size()) {
                         var next = new HeapElement(segmentIndexEnumeration.get(itr).left.nextElement(), itr);
-                        while (isIdPresentInList(firstElements, next.getIds())) {
+                        while (isIdPresentInList(firstElements, next.getId())) {
                                 if (segmentIndexEnumeration.get(itr).left.hasMoreElements()) {
                                         next = new HeapElement(segmentIndexEnumeration.get(itr).left.nextElement(),
                                                 itr);
@@ -100,7 +101,7 @@ public class MergeService {
                                         break;
                                 }
                         }
-                        if (!isIdPresentInList(firstElements, next.getIds())) {
+                        if (!isIdPresentInList(firstElements, next.getId())) {
                                 firstElements.add(next);
                         }
                         itr += 1;

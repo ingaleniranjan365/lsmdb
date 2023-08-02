@@ -6,10 +6,11 @@ import com.lsmdb.service.FileIOService;
 import io.vertx.core.buffer.Buffer;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 
+import java.time.Instant;
 import java.util.Deque;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.ConcurrentSkipListMap;
 
 public class StateLoader {
 
@@ -50,11 +51,9 @@ public class StateLoader {
                 return indices;
         }
 
-        public ImmutablePair<Deque<String>, Map<String, Deque<Buffer>>> getMemTableDataFromWAL() {
-                var memTable = new ConcurrentHashMap<String, Deque<Buffer>>();
-                var ids = new ConcurrentLinkedDeque<String>();
+        public Map<String, ImmutablePair<Instant, Buffer>> getMemTableFromWAL() {
                 // TODO : this method needs impl, dependant on impl of WAL which isn't implemented at the moment
-                return new ImmutablePair<>(ids, memTable);
+                return new ConcurrentSkipListMap<>();
         }
 
 }

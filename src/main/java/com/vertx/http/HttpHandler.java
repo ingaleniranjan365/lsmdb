@@ -5,6 +5,7 @@ import io.vertx.core.Vertx;
 import io.vertx.ext.web.RoutingContext;
 import lombok.extern.slf4j.Slf4j;
 
+import java.time.Instant;
 import java.util.Optional;
 
 import static io.netty.handler.codec.http.HttpResponseStatus.NOT_FOUND;
@@ -23,9 +24,10 @@ public class HttpHandler {
 
   public void handleUpdate(final RoutingContext context) {
     final var id = context.pathParam("id");
+    final var timestamp = context.pathParam("timestamp");
     final var payload = context.body().buffer();
     vertx.executeBlocking(
-        fut -> fut.complete(lsmService.insert(id, payload)),
+        fut -> fut.complete(lsmService.insert(id, Instant.parse(timestamp), payload)),
         false,
         res -> {
           if (res.succeeded()) {

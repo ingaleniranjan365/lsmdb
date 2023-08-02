@@ -1,17 +1,22 @@
 package com.lsmdb.entity;
 
-import com.lsmdb.entity.merge.SegmentGenerator;
 import com.lsmdb.service.FileIOService;
+import com.lsmdb.service.SegmentService;
 import io.vertx.core.buffer.Buffer;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 
+import java.time.Instant;
 import java.util.Deque;
 import java.util.Map;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+import java.util.stream.Stream;
 
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 
@@ -20,48 +25,97 @@ import static java.util.concurrent.CompletableFuture.supplyAsync;
 @Slf4j
 public class MemTableWrapper {
 
-  private Deque<SegmentIndex> indices;
-  private SegmentGenerator generator;
-  private FileIOService fileIOService;
-  private Deque<String> ids;
-  private Map<String, Deque<Buffer>> memTable;
+        public static boolean hardLimitBreached = false;
+        private final Lock memTableLock = new ReentrantLock();
+        private final int memTableSoftLimit = 100;
+        private final int memTableHardLimit = 1000;
+        private Deque<SegmentIndex> segmentIndices;
+        private FileIOService fileIOService;
+        private SegmentService segmentService;
+        private Map<String, ImmutablePair<Instant, Buffer>> memTable;
+        private Map<String, ImmutablePair<Instant, Buffer>> readOnlyMemTable;
 
-  public MemTableWrapper(
-      ImmutablePair<Deque<String>, Map<String, Deque<Buffer>>> memTableData,
-      Deque<SegmentIndex> indices,
-      FileIOService fileIOService,
-      SegmentGenerator generator
-  ) {
-    this.indices = indices;
-    this.fileIOService = fileIOService;
-    this.generator = generator;
-    this.ids = memTableData.getLeft();
-    this.memTable = memTableData.getRight();
-  }
+        public MemTableWrapper(
+                Map<String, ImmutablePair<Instant, Buffer>> memTable,
+                Deque<SegmentIndex> indices,
+                FileIOService fileIOService,
+                SegmentService segmentService) {
+                this.segmentIndices = indices;
+                this.fileIOService = fileIOService;
+                this.memTable = memTable;
+                this.readOnlyMemTable = memTable;
+                this.segmentService = segmentService;
+        }
 
-  public CompletableFuture<Boolean> persist(final String id, final Buffer payload) {
-    return fileIOService.writeAheadLog(payload)
-        .thenApply(b -> put(id, payload))
-        .thenApply(b -> generator.update(indices, ids, memTable));
-  }
+        public CompletableFuture<Void> persist(final String id, final Instant timestamp, final Buffer payload) {
+                return supplyAsync(() -> fileIOService.writeAheadLog(payload))
+                        .thenAccept(walSuccess -> {
+                                if (!walSuccess) {
+                                        System.out.println("Write Ahead Log failed for id: " + id);
+                                }
+                        })
+                        .thenRun(() -> put(id, timestamp, payload))
+                        .thenRunAsync(this::update);
+        }
 
-  private boolean put(final String id, final Buffer payload) {
-    ids.addLast(id);
-    if (memTable.containsKey(id)) {
-      memTable.get(id).addLast(payload);
-    } else {
-      var list = new ConcurrentLinkedDeque<Buffer>();
-      list.addLast(payload);
-      memTable.put(id, list);
-    }
-    return true;
-  }
+        private void update() {
+                if (memTableLock.tryLock()) {
+                        try {
+                                final var size = memTable.size();
+                                final var isMemTableFull = size >= memTableSoftLimit;
+                                if (isMemTableFull) {
+                                        memTable = new ConcurrentSkipListMap<>();
+                                        hardLimitBreached = size >= memTableHardLimit;
 
-  public Buffer get(final String id) {
-    var list = memTable.getOrDefault(id, null);
-    if (list != null && !list.isEmpty()) {
-      return list.getLast();
-    }
-    return null;
-  }
+                                        var segment = segmentService.getNewSegment();
+                                        var index = fileIOService.persist(segment, readOnlyMemTable);
+                                        segmentIndices.addFirst(index);
+                                        readOnlyMemTable = memTable;
+                                }
+
+                        } catch (Exception ex) {
+                                throw new RuntimeException(ex);
+                        } finally {
+                                memTableLock.unlock();
+                        }
+                }
+        }
+
+        private void put(final String id, final Instant timestamp, final Buffer payload) {
+                var prevTimestamp = get(id).orElse(ImmutablePair.of(timestamp.minusSeconds(1), null)).left;
+                if (timestamp.isAfter(prevTimestamp)) {
+                        memTable.put(id, ImmutablePair.of(timestamp, payload));
+                }
+        }
+
+        private Optional<ImmutablePair<Instant, Buffer>> get(final String id) {
+                return Optional.ofNullable(memTable.get(id))
+                        .or(() -> Stream.of(readOnlyMemTable)
+                                .filter(x -> x.containsKey(id))
+                                .findFirst()
+                                .map(r -> r.get(id))
+                        )
+                        .or(() -> getDataFromSegments(id));
+        }
+
+        private Optional<ImmutablePair<Instant, Buffer>> getDataFromSegments(final String id) {
+                var segmentIndex =
+                        segmentIndices.stream().filter(x -> x.getIndex().containsKey(id)).findFirst();
+                if (segmentIndex.isPresent()) {
+                        var metadata = segmentIndex.get().getIndex().get(id);
+                        var instant = metadata.getInstant();
+                        var segment = segmentIndex.get().getSegment();
+                        var segmentPath = segment.getSegmentPath();
+                        var payload = fileIOService.getPayload(segmentPath, metadata);
+                        if (payload.isPresent()) {
+                                return Optional.of(ImmutablePair.of(instant, payload.get()));
+                        }
+                }
+                return Optional.empty();
+        }
+
+        public Optional<String> getData(String id) {
+                var data = get(id);
+                return data.map(instantBufferImmutablePair -> instantBufferImmutablePair.right.toString());
+        }
 }
