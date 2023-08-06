@@ -5,7 +5,9 @@ import com.lsmdb.SegmentConfig;
 import com.lsmdb.entity.Metadata;
 import com.lsmdb.entity.Segment;
 import com.lsmdb.entity.SegmentIndex;
+import com.lsmdb.exception.PayloadTooLargeException;
 import io.vertx.core.buffer.Buffer;
+import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
@@ -17,15 +19,41 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.RandomAccessFile;
+import java.math.BigInteger;
+import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
 @Slf4j
+@Data
 public class FileIOService {
 
-        public static final ObjectMapper mapper = new ObjectMapper();
+        private final ObjectMapper mapper = new ObjectMapper();
+        private final File wal_file;
+        private final Integer buffer_size;
+        private final int metadataSize;
+        private final File imrc_file;
+        private final int inMemoryRecordCntHardLimit;
+
+        public FileIOService(final String walPath, final int buffer_size, final String inMemoryRecordsCntPath,
+                             int inMemoryRecordCntHardLimit) {
+                wal_file = new File(walPath);
+                imrc_file = new File(inMemoryRecordsCntPath);
+                this.buffer_size = buffer_size;
+                this.metadataSize = Integer.BYTES;
+                this.inMemoryRecordCntHardLimit = inMemoryRecordCntHardLimit;
+        }
+
+        public int getInMemoryRecordsCnt() {
+                try {
+                        return new BigInteger(FileUtils.readFileToByteArray(imrc_file)).intValue();
+                } catch (IOException e) {
+                        e.printStackTrace();
+                }
+                return inMemoryRecordCntHardLimit;
+       }
 
         public SegmentIndex persist(
                 final Segment segment,
@@ -118,8 +146,37 @@ public class FileIOService {
         }
 
         public boolean writeAheadLog(Buffer payload) {
-                // TODO : implement write ahead log, this is a dummy impl
-                return true;
+                var len = payload.length();
+                if(len > 1000) {
+                        throw new PayloadTooLargeException("Payload larger than 1000 bytes");
+                }
+                var bytes = payload.getBytes();
+                int paddingSize = Math.max(0, buffer_size - len);
+                var byteBuffer = ByteBuffer.allocate(metadataSize + buffer_size);
+                byteBuffer.putInt(len);
+                byteBuffer.put(bytes);
+                if (paddingSize > 0) {
+                        byteBuffer.put(new byte[paddingSize]);
+                }
+                try {
+                        FileUtils.writeByteArrayToFile(wal_file, byteBuffer.array(), true);
+                        return true;
+                } catch (IOException e) {
+                        e.printStackTrace();
+                        return false;
+                }
         }
 
+        public void updateInMemoryRecordsCnt(final int size) {
+                var bytes = ByteBuffer.allocate(4).putInt(size).array();
+                try {
+                        FileUtils.writeByteArrayToFile(imrc_file, bytes);
+                } catch (IOException e) {
+                        e.printStackTrace();
+                }
+        }
+
+        public int getRecordSize() {
+                return metadataSize + buffer_size;
+        }
 }

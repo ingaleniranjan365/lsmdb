@@ -1,21 +1,23 @@
 package com.lsmdb.service;
 
 import com.lsmdb.SegmentConfig;
-import com.lsmdb.StateLoader;
 import com.lsmdb.entity.Segment;
 
 public class SegmentService {
 
         private final SegmentConfig segmentConfig;
         private final FileIOService fileIOService;
+        private final String configPath;
 
-        public SegmentService(final SegmentConfig segmentConfig, FileIOService fileIOService) {
+        public SegmentService(final SegmentConfig segmentConfig, FileIOService fileIOService,
+                              String configPath) {
                 this.segmentConfig = segmentConfig;
                 this.fileIOService = fileIOService;
+                this.configPath = configPath;
         }
 
         private SegmentConfig getCurrentSegmentConfig() {
-                return new SegmentConfig(segmentConfig.getBasePath(), segmentConfig.getCount());
+                return new SegmentConfig(segmentConfig.getSegmentsPath(), segmentConfig.getCount());
         }
 
         public Segment getNewSegment() {
@@ -24,7 +26,7 @@ public class SegmentService {
                 var newSegmentPath = getPathForSegment(newSegmentName);
                 var newBackupName = getBackupName(segmentConfig.getCount());
                 var newBackupPath = getPathForBackup(newBackupName);
-                fileIOService.persistConfig(StateLoader.CONFIG_PATH, getCurrentSegmentConfig());
+                fileIOService.persistConfig(configPath, getCurrentSegmentConfig());
                 return new Segment(
                         newSegmentName,
                         newSegmentPath,
@@ -42,11 +44,11 @@ public class SegmentService {
         }
 
         public String getPathForSegment(String segmentName) {
-                return segmentConfig.getBasePath() + "/" + segmentName;
+                return segmentConfig.getSegmentsPath() + "/" + segmentName;
         }
 
         public String getPathForBackup(String backupName) {
-                return segmentConfig.getBasePath() + "/indices/" + backupName;
+                return segmentConfig.getSegmentsPath() + "/indices/" + backupName;
         }
 
 }

@@ -6,44 +6,49 @@ import com.lsmdb.service.FileIOService;
 import io.vertx.core.buffer.Buffer;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 
+import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.Deque;
-import java.util.Map;
 import java.util.concurrent.ConcurrentLinkedDeque;
 import java.util.concurrent.ConcurrentSkipListMap;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public class StateLoader {
 
-        // TODO: Remove duplication of conf
-        public static final String PATH_TO_HOME = System.getProperty("user.home");
-        public static final String CONFIG_PATH = PATH_TO_HOME + "/data/segmentState.json";
-        public static final String DEFAULT_BASE_PATH = PATH_TO_HOME + "/data/segments";
-        // TODO: Remove this mapper and use common mapper
-        public static final ObjectMapper mapper = new ObjectMapper();
-
         private final FileIOService fileIOService;
+        private final String segmentsPath;
+        private final String configPath;
+        private final String walPath;
+        private final ObjectMapper mapper = new ObjectMapper();
 
-        public StateLoader(final FileIOService fileIOService) {
+        public StateLoader(final FileIOService fileIOService, final String segmentsPath, final String configPath,
+                           final String walPath) {
                 this.fileIOService = fileIOService;
+                this.segmentsPath = segmentsPath;
+                this.configPath = configPath;
+                this.walPath = walPath;
         }
 
         public SegmentConfig getSegmentConfig() {
-                var segmentConfig = fileIOService.getSegmentConfig(CONFIG_PATH);
+                var segmentConfig = fileIOService.getSegmentConfig(configPath);
                 if (segmentConfig.isPresent()) {
                         var config = segmentConfig.get();
-                        config.setBasePath(DEFAULT_BASE_PATH);
+                        config.setSegmentsPath(segmentsPath);
                         return config;
                 }
-                return new SegmentConfig(DEFAULT_BASE_PATH, -1);
+                return new SegmentConfig(segmentsPath, -1);
         }
 
         public Deque<SegmentIndex> getIndices() {
-                var segmentConfig = fileIOService.getSegmentConfig(CONFIG_PATH);
+                var segmentConfig = fileIOService.getSegmentConfig(configPath);
                 var indices = new ConcurrentLinkedDeque<SegmentIndex>();
                 if (segmentConfig.isPresent()) {
                         var counter = segmentConfig.get().getCount();
                         while (counter >= 0) {
-                                var index = fileIOService.getIndex(DEFAULT_BASE_PATH + "/indices/backup-" + counter);
+                                var index = fileIOService.getIndex(segmentsPath + "/indices/backup-" + counter);
                                 index.ifPresent(indices::addLast);
                                 counter--;
                         }
@@ -51,8 +56,42 @@ public class StateLoader {
                 return indices;
         }
 
-        public Map<String, ImmutablePair<Instant, Buffer>> getMemTableFromWAL() {
-                // TODO : this method needs impl, dependant on impl of WAL which isn't implemented at the moment
+        public ConcurrentSkipListMap<String, ImmutablePair<Instant, Buffer>> getMemTableFromWAL() {
+                try {
+                        var wal = new RandomAccessFile(walPath, "r");
+                        var walLen = wal.length();
+                        var recordSize = fileIOService.getRecordSize();
+                        var inMemoryRecordsCnt = fileIOService.getInMemoryRecordsCnt();
+                        var walSizeToRead = inMemoryRecordsCnt * recordSize;
+                        var startOffset = Math.max(0, walLen - walSizeToRead);
+                        var walBytes = new byte[walSizeToRead];
+                        wal.seek(startOffset);
+                        wal.readFully(walBytes);
+                        var records = IntStream.range(0, inMemoryRecordsCnt)
+                                .parallel()
+                                .mapToObj(i -> {
+                                        int startIndex = i * recordSize;
+                                        int endIndex = Math.min(startIndex + recordSize, walBytes.length);
+                                        return Arrays.copyOfRange(walBytes, startIndex, endIndex);
+                                }).map(
+                                        b -> {
+                                                try {
+                                                        var timestamp = Instant.parse(mapper.readTree(b).get("timestamp").toString().replace( "\"", ""));
+                                                        var id = mapper.readTree(b).get("id").toString().replace( "\"", "");
+                                                        return ImmutablePair.of(id, ImmutablePair.of(timestamp, Buffer.buffer(b)));
+                                                } catch (IOException e) {
+                                                        e.printStackTrace();
+                                                }
+                                                return ImmutablePair.of("", ImmutablePair.of(Instant.MIN, Buffer.buffer("")));
+                                        }
+                                ).collect(Collectors.toMap(
+                                ImmutablePair::getLeft,
+                                ImmutablePair::getRight
+                        ));
+                        return new ConcurrentSkipListMap<>(records);
+                } catch (IOException e) {
+                        e.printStackTrace();
+                }
                 return new ConcurrentSkipListMap<>();
         }
 

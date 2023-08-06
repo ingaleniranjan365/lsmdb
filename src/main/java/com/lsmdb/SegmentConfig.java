@@ -8,6 +8,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 public class SegmentConfig {
-  private String basePath;
+  private String segmentsPath;
   private long count;
 }

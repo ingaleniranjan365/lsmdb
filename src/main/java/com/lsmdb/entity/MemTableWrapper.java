@@ -27,8 +27,8 @@ public class MemTableWrapper {
 
         public static boolean hardLimitBreached = false;
         private final Lock memTableLock = new ReentrantLock();
-        private final int memTableSoftLimit = 100;
-        private final int memTableHardLimit = 1000;
+        private final int memTableSoftLimit;
+        private final int memTableHardLimit;
         private Deque<SegmentIndex> segmentIndices;
         private FileIOService fileIOService;
         private SegmentService segmentService;
@@ -39,19 +39,21 @@ public class MemTableWrapper {
                 Map<String, ImmutablePair<Instant, Buffer>> memTable,
                 Deque<SegmentIndex> indices,
                 FileIOService fileIOService,
-                SegmentService segmentService) {
+                SegmentService segmentService, int inMemoryRecordCntSoftLimit, int inMemoryRecordCntHardLimit) {
                 this.segmentIndices = indices;
                 this.fileIOService = fileIOService;
                 this.memTable = memTable;
                 this.readOnlyMemTable = memTable;
                 this.segmentService = segmentService;
+                this.memTableSoftLimit = inMemoryRecordCntSoftLimit;
+                this.memTableHardLimit = inMemoryRecordCntHardLimit;
         }
 
         public CompletableFuture<Void> persist(final String id, final Instant timestamp, final Buffer payload) {
                 return supplyAsync(() -> fileIOService.writeAheadLog(payload))
                         .thenAccept(walSuccess -> {
                                 if (!walSuccess) {
-                                        System.out.println("Write Ahead Log failed for id: " + id);
+                                        log.error("Write Ahead Log failed for id: " + id);
                                 }
                         })
                         .thenRun(() -> put(id, timestamp, payload))
@@ -62,6 +64,7 @@ public class MemTableWrapper {
                 if (memTableLock.tryLock()) {
                         try {
                                 final var size = memTable.size();
+                                fileIOService.updateInMemoryRecordsCnt(size);
                                 final var isMemTableFull = size >= memTableSoftLimit;
                                 if (isMemTableFull) {
                                         memTable = new ConcurrentSkipListMap<>();
