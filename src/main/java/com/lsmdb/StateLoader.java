@@ -8,6 +8,7 @@ import org.apache.commons.lang3.tuple.ImmutablePair;
 
 import java.io.IOException;
 import java.io.RandomAccessFile;
+import java.nio.ByteBuffer;
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.Deque;
@@ -76,9 +77,15 @@ public class StateLoader {
                                 }).map(
                                         b -> {
                                                 try {
-                                                        var timestamp = Instant.parse(mapper.readTree(b).get("timestamp").toString().replace( "\"", ""));
-                                                        var id = mapper.readTree(b).get("id").toString().replace( "\"", "");
-                                                        return ImmutablePair.of(id, ImmutablePair.of(timestamp, Buffer.buffer(b)));
+                                                        var payloadLen = ByteBuffer.wrap(b, 0, Integer.BYTES).getInt();
+                                                        var payloadBytes = Arrays.copyOfRange(b, Integer.BYTES,
+                                                                payloadLen + Integer.BYTES);
+                                                        var timestamp =
+                                                                Instant.parse(mapper.readTree(payloadBytes).get(
+                                                                "timestamp").toString().replace( "\"", ""));
+                                                        var id = mapper.readTree(payloadBytes).get("id").toString().replace( "\"", "");
+                                                        return ImmutablePair.of(id, ImmutablePair.of(timestamp,
+                                                                Buffer.buffer(payloadBytes)));
                                                 } catch (IOException e) {
                                                         e.printStackTrace();
                                                 }
