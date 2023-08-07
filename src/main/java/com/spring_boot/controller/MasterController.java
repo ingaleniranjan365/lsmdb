@@ -36,8 +36,8 @@ public class MasterController {
 
         @PutMapping("/element/{id}/timestamp/{timestamp}")
         public ResponseEntity<CompletableFuture<Void>> updatePayload(final @PathVariable("id") String id,
-                                                                        final @PathVariable("timestamp") Instant instant,
-                                                                        final @RequestBody String payload
+                                                                     final @PathVariable("timestamp") Instant instant,
+                                                                     final @RequestBody String payload
         ) {
                 return ResponseEntity.ok(lsmService.insert(id, instant, Buffer.buffer(payload)));
         }

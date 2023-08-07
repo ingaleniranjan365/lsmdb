@@ -11,11 +11,11 @@ import org.quartz.JobExecutionContext;
 @DisallowConcurrentExecution
 public class ScheduledMerge implements Job {
 
-  @SneakyThrows
-  @Override
-  public void execute(final JobExecutionContext context) {
-    LSMService lsmService = (LSMService) context.getJobDetail().getJobDataMap().get("lsmService");
-    lsmService.merge();
-  }
+        @SneakyThrows
+        @Override
+        public void execute(final JobExecutionContext context) {
+                LSMService lsmService = (LSMService) context.getJobDetail().getJobDataMap().get("lsmService");
+                lsmService.merge();
+        }
 
 }

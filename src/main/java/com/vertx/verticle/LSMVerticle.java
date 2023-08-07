@@ -5,7 +5,7 @@ import com.lsmdb.service.LSMService;
 import com.vertx.AppConfig;
 import com.vertx.http.HttpHandler;
 import com.vertx.http.HttpRoutes;
-import com.vertx.http.MydbHttpServer;
+import com.vertx.http.HttpServer;
 import com.vertx.scheduling.SchedulerConfig;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.Future;
@@ -31,7 +31,7 @@ public class LSMVerticle extends AbstractVerticle {
                 final LSMService lsmService = LSM.getLsmService();
                 final var httpHandler = new HttpHandler(lsmService, vertx);
                 setupScheduledMerging(config, lsmService);
-                final var server = new MydbHttpServer(vertx, new HttpRoutes(vertx, httpHandler).defineRoutes());
+                final var server = new HttpServer(vertx, new HttpRoutes(vertx, httpHandler).defineRoutes());
                 Integer port = Optional.ofNullable(config.getJsonObject("http"))
                         .map(it -> it.getInteger("port"))
                         .orElse(8080);

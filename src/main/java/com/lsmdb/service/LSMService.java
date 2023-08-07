@@ -60,7 +60,7 @@ public class LSMService {
                         IntStream.range(0, segmentIndexCountToBeRemoved)
                                 .forEach(x -> indices.removeAll(getIndicesForMergedSegments(validSegmentEnumeration)));
 
-                        fileIOService.persistIndex(mergeSegment.getBackupPath(), SerializationUtils.serialize(indices));
+                        fileIOService.persistIndex(mergeSegment.getIndexPath(), SerializationUtils.serialize(indices));
                         deleteMergedSegments(segmentEnumeration);
                 }
         }
@@ -75,7 +75,7 @@ public class LSMService {
                 segmentIndexEnumeration.parallelStream().map(x -> x.getRight().getSegment())
                         .forEach(segment -> {
                                 try {
-                                        new File(segment.getBackupPath()).delete();
+                                        new File(segment.getIndexPath()).delete();
                                         new File(segment.getSegmentPath()).delete();
                                 } catch (RuntimeException exception) {
                                         exception.printStackTrace();

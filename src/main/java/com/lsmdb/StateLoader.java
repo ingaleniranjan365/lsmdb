@@ -49,7 +49,7 @@ public class StateLoader {
                 if (segmentConfig.isPresent()) {
                         var counter = segmentConfig.get().getCount();
                         while (counter >= 0) {
-                                var index = fileIOService.getIndex(segmentsPath + "/indices/backup-" + counter);
+                                var index = fileIOService.getIndex(segmentsPath + "/indices/index-" + counter);
                                 index.ifPresent(indices::addLast);
                                 counter--;
                         }
@@ -82,19 +82,21 @@ public class StateLoader {
                                                                 payloadLen + Integer.BYTES);
                                                         var timestamp =
                                                                 Instant.parse(mapper.readTree(payloadBytes).get(
-                                                                "timestamp").toString().replace( "\"", ""));
-                                                        var id = mapper.readTree(payloadBytes).get("id").toString().replace( "\"", "");
+                                                                        "timestamp").toString().replace("\"", ""));
+                                                        var id = mapper.readTree(payloadBytes).get("id").toString()
+                                                                .replace("\"", "");
                                                         return ImmutablePair.of(id, ImmutablePair.of(timestamp,
                                                                 Buffer.buffer(payloadBytes)));
                                                 } catch (IOException e) {
                                                         e.printStackTrace();
                                                 }
-                                                return ImmutablePair.of("", ImmutablePair.of(Instant.MIN, Buffer.buffer("")));
+                                                return ImmutablePair.of("",
+                                                        ImmutablePair.of(Instant.MIN, Buffer.buffer("")));
                                         }
                                 ).collect(Collectors.toMap(
-                                ImmutablePair::getLeft,
-                                ImmutablePair::getRight
-                        ));
+                                        ImmutablePair::getLeft,
+                                        ImmutablePair::getRight
+                                ));
                         return new ConcurrentSkipListMap<>(records);
                 } catch (IOException e) {
                         e.printStackTrace();

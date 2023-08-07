@@ -53,7 +53,7 @@ public class FileIOService {
                         e.printStackTrace();
                 }
                 return inMemoryRecordCntHardLimit;
-       }
+        }
 
         public SegmentIndex persist(
                 final Segment segment,
@@ -78,7 +78,7 @@ public class FileIOService {
                         e.printStackTrace();
                 }
                 final var segmentIndex = new SegmentIndex(segment, index);
-                persistIndex(segment.getBackupPath(), SerializationUtils.serialize(segmentIndex));
+                persistIndex(segment.getIndexPath(), SerializationUtils.serialize(segmentIndex));
                 return segmentIndex;
         }
 
@@ -136,9 +136,9 @@ public class FileIOService {
                 }
         }
 
-        public void persistIndex(final String newBackupPath, final byte[] indicesBytes) {
+        public void persistIndex(final String newIndexPath, final byte[] indicesBytes) {
                 try {
-                        var newIndexFile = new File(newBackupPath);
+                        var newIndexFile = new File(newIndexPath);
                         FileUtils.writeByteArrayToFile(newIndexFile, indicesBytes);
                 } catch (IOException | RuntimeException ex) {
                         ex.printStackTrace();
@@ -147,7 +147,7 @@ public class FileIOService {
 
         public boolean writeAheadLog(Buffer payload) {
                 var len = payload.length();
-                if(len > 1000) {
+                if (len > 1000) {
                         throw new PayloadTooLargeException("Payload larger than 1000 bytes");
                 }
                 var bytes = payload.getBytes();

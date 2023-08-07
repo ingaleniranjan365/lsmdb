@@ -24,14 +24,14 @@ public class SegmentService {
                 segmentConfig.setCount(segmentConfig.getCount() + 1);
                 var newSegmentName = getSegmentName(segmentConfig.getCount());
                 var newSegmentPath = getPathForSegment(newSegmentName);
-                var newBackupName = getBackupName(segmentConfig.getCount());
-                var newBackupPath = getPathForBackup(newBackupName);
+                var newIndexName = getIndexName(segmentConfig.getCount());
+                var newIndexPath = getPathForIndex(newIndexName);
                 fileIOService.persistConfig(configPath, getCurrentSegmentConfig());
                 return new Segment(
                         newSegmentName,
                         newSegmentPath,
-                        newBackupName,
-                        newBackupPath
+                        newIndexName,
+                        newIndexPath
                 );
         }
 
@@ -39,16 +39,16 @@ public class SegmentService {
                 return String.format("segment-%d", i);
         }
 
-        private String getBackupName(long i) {
-                return String.format("backup-%d", i);
+        private String getIndexName(long i) {
+                return String.format("index-%d", i);
         }
 
         public String getPathForSegment(String segmentName) {
                 return segmentConfig.getSegmentsPath() + "/" + segmentName;
         }
 
-        public String getPathForBackup(String backupName) {
-                return segmentConfig.getSegmentsPath() + "/indices/" + backupName;
+        public String getPathForIndex(String indexName) {
+                return segmentConfig.getSegmentsPath() + "/indices/" + indexName;
         }
 
 }

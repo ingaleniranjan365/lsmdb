@@ -1,7 +1,7 @@
 package com.lsmdb.service;
 
-import com.lsmdb.entity.SegmentIndex;
 import com.lsmdb.entity.Metadata;
+import com.lsmdb.entity.SegmentIndex;
 import com.lsmdb.entity.merge.HeapElement;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;

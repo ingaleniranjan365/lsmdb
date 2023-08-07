@@ -19,7 +19,8 @@ public class LSM {
         private static final int IN_MEMORY_RECORD_CNT_HARD_LIMIT = 1000;
 
         public static LSMService getLsmService() {
-                final var fileIOService = new FileIOService(WAL_PATH, BUFFER_SIZE, IN_MEMORY_RECORDS_CNT_PATH, IN_MEMORY_RECORD_CNT_HARD_LIMIT);
+                final var fileIOService = new FileIOService(WAL_PATH, BUFFER_SIZE, IN_MEMORY_RECORDS_CNT_PATH,
+                        IN_MEMORY_RECORD_CNT_HARD_LIMIT);
                 final var stateLoader = new StateLoader(fileIOService, SEGMENTS_PATH, CONFIG_PATH, WAL_PATH);
                 final var segmentConfig = stateLoader.getSegmentConfig();
                 final var indices = stateLoader.getIndices();

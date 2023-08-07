@@ -6,11 +6,11 @@ import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
 
 public class AppConfig {
-  private AppConfig() {
-  }
+        private AppConfig() {
+        }
 
-  public static Future<JsonObject> init(final Vertx vertx) {
-    ConfigRetriever retriever = ConfigRetriever.create(vertx);
-    return retriever.getConfig();
-  }
+        public static Future<JsonObject> init(final Vertx vertx) {
+                ConfigRetriever retriever = ConfigRetriever.create(vertx);
+                return retriever.getConfig();
+        }
 }

@@ -13,10 +13,10 @@ import java.util.Map;
 @NoArgsConstructor
 public class SegmentIndex implements Serializable {
 
-  @Serial
-  private static final long serialVersionUID = 5388380270261334686L;
+        @Serial
+        private static final long serialVersionUID = 5388380270261334686L;
 
-  private Segment segment;
+        private Segment segment;
 
-  private Map<String, Metadata> index;
+        private Map<String, Metadata> index;
 }

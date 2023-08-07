@@ -13,10 +13,10 @@ import java.time.Instant;
 @AllArgsConstructor
 public class Metadata implements Serializable {
 
-  @Serial
-  private static final long serialVersionUID = 5388380270261334689L;
+        @Serial
+        private static final long serialVersionUID = 5388380270261334689L;
 
-  private long offset;
-  private long size;
-  private Instant instant;
+        private long offset;
+        private long size;
+        private Instant instant;
 }
