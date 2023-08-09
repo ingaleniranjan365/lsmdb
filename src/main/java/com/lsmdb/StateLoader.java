@@ -95,7 +95,12 @@ public class StateLoader {
                                         }
                                 ).collect(Collectors.toMap(
                                         ImmutablePair::getLeft,
-                                        ImmutablePair::getRight
+                                        ImmutablePair::getRight,
+                                        (existingValue, newValue) -> {
+                                                Instant existingTimestamp = existingValue.getLeft();
+                                                Instant newTimestamp = newValue.getLeft();
+                                                return existingTimestamp.isAfter(newTimestamp) ? existingValue : newValue;
+                                        }
                                 ));
                         return new ConcurrentSkipListMap<>(records);
                 } catch (IOException e) {
