@@ -3,15 +3,17 @@ plugins {
     id 'io.spring.dependency-management' version '1.0.11.RELEASE'
     id 'java'
     id 'application'
+    id 'com.github.johnrengelman.shadow' version '7.1.2'
 }
 
-group = 'com.mydb'
+group = 'com.lsmdb'
 version = '0.0.1-SNAPSHOT'
 sourceCompatibility = '17'
 
 ext {
     springBootVersion = '2.7.14'
     vertxVersion = '4.4.0'
+    artifactVersion = 'vertx'
 }
 
 repositories {
@@ -34,20 +36,11 @@ dependencies {
 
     implementation "org.projectlombok:lombok:1.18.22"
     annotationProcessor "org.projectlombok:lombok:1.18.22"
+
+    implementation 'com.google.code.gson:gson:2.8.9'
+    implementation 'com.sparkjava:spark-core:2.9.3'
 }
 
-jar {
-
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-
-    manifest {
-        attributes "Main-Class": "com.lsmdb.LSM"
-    }
-
-    from {
-        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
-    }
-}
 
 test {
     useJUnitPlatform()
@@ -58,4 +51,14 @@ task runWithExecJarExecutable(type: Exec) {
     group = "Execution"
     description = "Run the output executable jar with ExecTask"
     commandLine "java", "-jar", jar.archiveFile.get()
+}
+
+application {
+    mainClassName = "com.vertx.MainVerticle"
+}
+
+shadowJar {
+    archiveClassifier.set("fat")
+    archiveVersion.set(artifactVersion)
+    mergeServiceFiles()
 }
