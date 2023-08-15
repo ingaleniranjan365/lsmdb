@@ -86,7 +86,7 @@ public class MemTableWrapper {
 
         private void put(final String id, final Instant timestamp, final Buffer payload) {
                 var prevTimestamp = get(id).orElse(ImmutablePair.of(timestamp.minusSeconds(1), null)).left;
-                if (timestamp.isAfter(prevTimestamp)) {
+                if (timestamp.isAfter(prevTimestamp) || timestamp.equals(prevTimestamp)) {
                         memTable.put(id, ImmutablePair.of(timestamp, payload));
                 }
         }
