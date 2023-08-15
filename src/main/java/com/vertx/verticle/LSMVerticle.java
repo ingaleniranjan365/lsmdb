@@ -34,7 +34,7 @@ public class LSMVerticle extends AbstractVerticle {
                 final var server = new HttpServer(vertx, new HttpRoutes(vertx, httpHandler).defineRoutes());
                 Integer port = Optional.ofNullable(config.getJsonObject("http"))
                         .map(it -> it.getInteger("port"))
-                        .orElse(8080);
+                        .orElse(8081);
 
                 return server.initialiseAndSetup(port);
         }
