@@ -103,7 +103,7 @@ public class StateLoader {
                                         }
                                 ));
                         return new ConcurrentSkipListMap<>(records);
-                } catch (IOException e) {
+                } catch (RuntimeException | IOException e) {
                         e.printStackTrace();
                 }
                 return new ConcurrentSkipListMap<>();
