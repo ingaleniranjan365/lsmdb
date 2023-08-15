@@ -25,6 +25,7 @@ public class HttpHandler {
         public void handleUpdate(final RoutingContext context) {
                 final var id = context.pathParam("id");
                 final var timestamp = context.pathParam("timestamp");
+                // TODO : Verify payload for present of timestamp and id
                 final var payload = context.body().buffer();
                 vertx.executeBlocking(
                         fut -> fut.complete(lsmService.insert(id, Instant.parse(timestamp), payload)),
