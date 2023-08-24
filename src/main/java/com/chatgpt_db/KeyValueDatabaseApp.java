@@ -1,15 +1,12 @@
 package com.chatgpt_db;
 
-import com.google.gson.Gson;
 import spark.Spark;
 import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
-import java.util.*;
+import java.util.Map;
 import java.util.concurrent.*;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
@@ -20,49 +17,40 @@ public class KeyValueDatabaseApp {
         public static void main(String[] args) {
                 createDataDirectory();
 
-                Spark.port(8080); // Set the port to 8080
+                Spark.port(8080);
 
                 KeyValueDatabase database = new KeyValueDatabase();
-                Gson gson = new Gson();
 
-                // PUT endpoint
                 Spark.put("/element/:id/timestamp/:timestamp", (req, res) -> {
                         String id = req.params("id");
                         String timestampString = req.params("timestamp");
-                        Instant instant = Instant.parse(timestampString);  // Parse as Instant
-                        LocalDateTime timestamp = instant.atZone(ZoneOffset.UTC).toLocalDateTime(); // Convert to LocalDateTime
                         String requestBody = req.body();
 
-                        database.put(id, timestamp, requestBody);
+                        database.put(id, timestampString, requestBody);
                         return "Data inserted successfully";
                 });
 
-                // GET endpoint
                 Spark.get("/latest/element/:id", (req, res) -> {
                         String id = req.params("id");
                         String latestValue = database.getLatest(id);
 
                         if (latestValue != null) {
-                                res.type("application/json"); // Set the response type to JSON
-                                return latestValue; // Return the serialized JSON object directly
+                                res.type("application/json");
+                                return latestValue;
                         } else {
-                                res.status(404); // Set the status to indicate resource not found
+                                res.status(404);
                                 return "Key not found";
                         }
                 });
 
-                // Save data on shutdown
                 Runtime.getRuntime().addShutdownHook(new Thread(() -> {
                         database.saveData();
                 }));
 
-                // Load data on startup
                 database.loadData();
 
-                // Start Spark server
                 Spark.awaitInitialization();
         }
-
 
         private static void createDataDirectory() {
                 try {
@@ -73,40 +61,50 @@ public class KeyValueDatabaseApp {
         }
 }
 
-class   KeyValueDatabase {
-        private final Map<String, ConcurrentSkipListMap<LocalDateTime, String>> data;
+class KeyValueDatabase {
+        private final Map<String, ConcurrentSkipListMap<Long, String>> data;
         private final Map<String, Lock> locks;
+        private final Map<String, Long> lastTimestamps;
+        private final int maxInMemoryValues;
 
         public KeyValueDatabase() {
                 data = new ConcurrentHashMap<>();
                 locks = new ConcurrentHashMap<>();
+                lastTimestamps = new ConcurrentHashMap<>();
+                maxInMemoryValues = 25000;  // 25% of 100k unique keys
         }
 
-        public void put(String id, LocalDateTime timestamp, String value) {
+        public void put(String id, String timestampString, String value) {
+                long timestamp = Instant.parse(timestampString).toEpochMilli();
                 locks.computeIfAbsent(id, k -> new ReentrantLock()).lock();
                 try {
-                        data.computeIfAbsent(id, k -> new ConcurrentSkipListMap<>()).put(timestamp, value);
+                        lastTimestamps.put(id, Math.max(lastTimestamps.getOrDefault(id, 0L), timestamp));
+                        data.computeIfAbsent(id, k -> new ConcurrentSkipListMap<>())
+                                .put(timestamp, value);
+                        if (data.get(id).size() > maxInMemoryValues) {
+                                data.get(id).remove(data.get(id).firstKey());
+                        }
                 } finally {
                         locks.get(id).unlock();
                 }
         }
 
         public String getLatest(String id) {
-                ConcurrentSkipListMap<LocalDateTime, String> keyData = data.get(id);
-                if (keyData != null && !keyData.isEmpty()) {
-                        return keyData.lastEntry().getValue();
+                if (lastTimestamps.containsKey(id)) {
+                        long latestTimestamp = lastTimestamps.get(id);
+                        return data.get(id).get(latestTimestamp);
                 }
                 return null;
         }
 
         public synchronized void saveData() {
-                for (Map.Entry<String, ConcurrentSkipListMap<LocalDateTime, String>> entry : data.entrySet()) {
+                for (Map.Entry<String, ConcurrentSkipListMap<Long, String>> entry : data.entrySet()) {
                         String id = entry.getKey();
-                        ConcurrentSkipListMap<LocalDateTime, String> keyData = entry.getValue();
+                        ConcurrentSkipListMap<Long, String> keyData = entry.getValue();
 
                         Path filePath = Path.of(KeyValueDatabaseApp.DATA_DIR, id + ".dat");
                         try (BufferedWriter writer = Files.newBufferedWriter(filePath, StandardOpenOption.CREATE)) {
-                                for (Map.Entry<LocalDateTime, String> dataEntry : keyData.entrySet()) {
+                                for (Map.Entry<Long, String> dataEntry : keyData.entrySet()) {
                                         writer.write(dataEntry.getKey() + "|" + dataEntry.getValue() + "\n");
                                 }
                         } catch (IOException e) {
@@ -121,15 +119,16 @@ class   KeyValueDatabase {
                                 .filter(Files::isRegularFile)
                                 .forEach(filePath -> {
                                         String id = filePath.getFileName().toString().replace(".dat", "");
-                                        ConcurrentSkipListMap<LocalDateTime, String> keyData = new ConcurrentSkipListMap<>();
+                                        ConcurrentSkipListMap<Long, String> keyData = new ConcurrentSkipListMap<>();
 
                                         try (BufferedReader reader = Files.newBufferedReader(filePath)) {
                                                 String line;
                                                 while ((line = reader.readLine()) != null) {
                                                         String[] parts = line.split("\\|");
-                                                        LocalDateTime timestamp = LocalDateTime.parse(parts[0]);
+                                                        long timestamp = Long.parseLong(parts[0]);
                                                         String value = parts[1];
                                                         keyData.put(timestamp, value);
+                                                        lastTimestamps.put(id, Math.max(lastTimestamps.getOrDefault(id, 0L), timestamp));
                                                 }
                                         } catch (IOException e) {
                                                 e.printStackTrace();
