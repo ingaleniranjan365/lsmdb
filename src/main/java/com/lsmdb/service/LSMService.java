@@ -19,7 +19,6 @@ import java.util.Enumeration;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 
 @Slf4j
 public class LSMService {
@@ -47,25 +46,25 @@ public class LSMService {
                 log.info("**************\nStarting scheduled merging!\n******************");
                 final var segmentEnumeration = getSegmentIndexEnumeration();
                 var segmentIndexCountToBeRemoved = segmentEnumeration.size();
-                var mergeSegment = segmentService.getNewSegment();
+                var mergedSegment = segmentService.getNewSegment();
                 final var validSegmentEnumeration = segmentEnumeration.stream()
                         .filter(i -> new File(
                                 segmentService.getPathForSegment(i.getRight().getSegment().getSegmentName())).exists())
                         .toList();
                 if (validSegmentEnumeration.size() > 10) {
-                        var mergedSegmentIndex =
-                                mergeService.merge(validSegmentEnumeration, mergeSegment.getSegmentPath());
+                        var mergedIndex =
+                                mergeService.merge(validSegmentEnumeration, mergedSegment.getSegmentPath());
 
-                        indices.addLast(new SegmentIndex(mergeSegment, mergedSegmentIndex));
-                        IntStream.range(0, segmentIndexCountToBeRemoved)
-                                .forEach(x -> indices.removeAll(getIndicesForMergedSegments(validSegmentEnumeration)));
+                        var mergedSegmentIndex = new SegmentIndex(mergedSegment, mergedIndex);
+                        fileIOService.persistIndex(mergedSegment.getIndexPath(), SerializationUtils.serialize(mergedSegmentIndex));
+                        indices.addLast(mergedSegmentIndex);
+                        indices.removeAll(getListOfMergedSegments(validSegmentEnumeration));
 
-                        fileIOService.persistIndex(mergeSegment.getIndexPath(), SerializationUtils.serialize(indices));
                         deleteMergedSegments(segmentEnumeration);
                 }
         }
 
-        private List<SegmentIndex> getIndicesForMergedSegments(
+        private List<SegmentIndex> getListOfMergedSegments(
                 List<ImmutablePair<Enumeration<String>, SegmentIndex>> segmentEnumeration) {
                 return segmentEnumeration.stream().map(ImmutablePair::getRight).collect(Collectors.toList());
         }

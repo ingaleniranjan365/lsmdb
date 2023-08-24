@@ -6,14 +6,16 @@ plugins {
     id 'com.github.johnrengelman.shadow' version '7.1.2'
 }
 
-group = 'com.lsmdb'
+//group = 'com.lsmdb'
+group = 'com.chatgpt_db'
 version = '0.0.1-SNAPSHOT'
 sourceCompatibility = '17'
 
 ext {
     springBootVersion = '2.7.14'
     vertxVersion = '4.4.0'
-    artifactVersion = 'vertx'
+//    artifactVersion = 'vertx'
+    artifactVersion = 'spark'
 }
 
 repositories {
@@ -54,7 +56,8 @@ task runWithExecJarExecutable(type: Exec) {
 }
 
 application {
-    mainClassName = "com.vertx.MainVerticle"
+//    mainClassName = "com.vertx.MainVerticle"
+    mainClassName = "com.chatgpt_db.KeyValueDatabaseApp"
 }
 
 shadowJar {

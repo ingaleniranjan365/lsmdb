@@ -6,6 +6,7 @@ import com.lsmdb.service.FileIOService;
 import io.vertx.core.buffer.Buffer;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
@@ -40,7 +41,17 @@ public class StateLoader {
                         config.setSegmentsPath(segmentsPath);
                         return config;
                 }
-                return new SegmentConfig(segmentsPath, -1);
+                var scratchSegmentConf = new SegmentConfig(segmentsPath, -1);
+                persistScratchSegmentConf(scratchSegmentConf);
+                return scratchSegmentConf;
+        }
+
+        private void persistScratchSegmentConf(SegmentConfig scratchSegmentConf) {
+                var configFile = new File(configPath);
+                if (!configFile.getParentFile().exists() && !configFile.getParentFile().mkdirs()) {
+                        throw new RuntimeException("Failed to create data directory!");
+                }
+                fileIOService.persistConfig(configPath, scratchSegmentConf);
         }
 
         public Deque<SegmentIndex> getIndices() {
@@ -62,7 +73,7 @@ public class StateLoader {
                         var wal = new RandomAccessFile(walPath, "r");
                         var walLen = wal.length();
                         var recordSize = fileIOService.getRecordSize();
-                        var inMemoryRecordsCnt = fileIOService.getInMemoryRecordsCnt();
+                        var inMemoryRecordsCnt = fileIOService.getInMemoryRecordCntHardLimit();
                         var walSizeToRead = inMemoryRecordsCnt * recordSize;
                         var startOffset = Math.max(0, walLen - walSizeToRead);
                         var walBytes = new byte[walSizeToRead];

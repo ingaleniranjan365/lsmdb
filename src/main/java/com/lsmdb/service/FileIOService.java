@@ -34,25 +34,14 @@ public class FileIOService {
         private final File wal_file;
         private final Integer buffer_size;
         private final int metadataSize;
-        private final File imrc_file;
         private final int inMemoryRecordCntHardLimit;
 
-        public FileIOService(final String walPath, final int buffer_size, final String inMemoryRecordsCntPath,
+        public FileIOService(final String walPath, final int buffer_size,
                              int inMemoryRecordCntHardLimit) {
                 wal_file = new File(walPath);
-                imrc_file = new File(inMemoryRecordsCntPath);
                 this.buffer_size = buffer_size;
                 this.metadataSize = Integer.BYTES;
                 this.inMemoryRecordCntHardLimit = inMemoryRecordCntHardLimit;
-        }
-
-        public int getInMemoryRecordsCnt() {
-                try {
-                        return new BigInteger(FileUtils.readFileToByteArray(imrc_file)).intValue();
-                } catch (IOException e) {
-                        e.printStackTrace();
-                }
-                return inMemoryRecordCntHardLimit;
         }
 
         public SegmentIndex persist(
@@ -164,15 +153,6 @@ public class FileIOService {
                 } catch (IOException e) {
                         e.printStackTrace();
                         return false;
-                }
-        }
-
-        public void updateInMemoryRecordsCnt(final int size) {
-                var bytes = ByteBuffer.allocate(4).putInt(size).array();
-                try {
-                        FileUtils.writeByteArrayToFile(imrc_file, bytes);
-                } catch (IOException e) {
-                        e.printStackTrace();
                 }
         }
 

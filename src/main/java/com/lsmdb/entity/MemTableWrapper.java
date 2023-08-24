@@ -18,6 +18,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Stream;
 
+import static java.util.concurrent.CompletableFuture.runAsync;
 import static java.util.concurrent.CompletableFuture.supplyAsync;
 
 @Getter
@@ -60,11 +61,22 @@ public class MemTableWrapper {
                         .thenRunAsync(this::update);
         }
 
+        public CompletableFuture<Void> persistCopy(final String id, final Instant timestamp, final Buffer payload) {
+                return supplyAsync(() -> fileIOService.writeAheadLog(payload))
+                        .thenComposeAsync(walSuccess -> {
+                                if (!walSuccess) {
+                                        log.error("Write Ahead Log failed for id: " + id);
+                                }
+                                return CompletableFuture.completedFuture(null);
+                        })
+                        .thenComposeAsync(unused -> CompletableFuture.runAsync(() -> put(id, timestamp, payload)))
+                        .thenComposeAsync(unused -> CompletableFuture.runAsync(this::update));
+        }
+
         private void update() {
                 if (memTableLock.tryLock()) {
                         try {
                                 final var size = memTable.size();
-                                fileIOService.updateInMemoryRecordsCnt(size);
                                 final var isMemTableFull = size >= memTableSoftLimit;
                                 if (isMemTableFull) {
                                         memTable = new ConcurrentSkipListMap<>();
