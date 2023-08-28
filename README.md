@@ -1,10 +1,10 @@
-# ChatGPT vs Me : Key-Value Database Implementation in Java
+# Key-Value Database Implementation(s) in Java
 
 ## Problem Statement
 
 Implement a generic key-value database in Java that fulfills the following requirements:
 
-### PUT /element/:id/timestamp/:timestamp
+#### PUT /element/:id/timestamp/:timestamp
 
 Endpoint for inserting data (key-value pair) into the database.
 
@@ -33,51 +33,47 @@ Request body example:
 }
 ```
 
-## GET /latest/element/:id
+#### GET /latest/element/:id
 
 Endpoint for retrieving the latest value (value with the latest timestamp) associated with the given key.
 
 - `id`: Path parameter representing the key.
 
-If the database receives a value with an older timestamp for an existing key, it should ignore the received value and not replace the existing value with a more recent timestamp.
+#### Implementation constraints and expectations 
 
-The database should handle a load of 100 write or insert requests per second continuously for one hour and 100 read or get requests per second continuously for one hour.
+Database is only expected to store the latest value received so far for a key and should be able to return the latest value received so far for any key ever written(inserted) to the database.
 
-For each key stored in the database, there might be 1 to 200 requests with values at different timestamps. The order of receiving values is not necessarily in chronological order.
+Database will have enough memory to store all the keys being written to the database but might not have enough memory to store all values being written to the database. You can assume that the database can only be guaranteed to have enough memory to store 25% of the all values being written to it.
 
-The database should persist data across restarts.
+For each key to be stored in the database, there might be anywhere between 1 to 200 requests with values at different timestamps (and the database doesn’t necessarily receive these values in order of timestamps).  
 
-## ChatGPT Implementation
+Against the same key, the database might receive a value with an older timestamp while the existing value against the key in the database has a more recent timestamp, in such cases the received value should be ignored and not replaced against the existing value (with a more recent timestamp).
 
-This implementation done by ChatGPT consists of a Java program divided into two main classes:
+The database should be able to persist data across restarts.
 
-- `KeyValueDatabaseApp`: The main class that sets up the Spark server and handles the REST endpoints.
-- `KeyValueDatabase`: The class that implements the key-value database with support for storing and retrieving data.
+Database should have a mechanism for crash recovery in case of unexpected termination.
 
-## My Implementation
+Database should be as performant as possible
 
-I have implemented database as log structure merge trees
+You can’t use any of the existing databases to implement this database.
+
+Performance tests -
+
+Test 1 :
+~300K writes (key-value inserts) in 30 mins for 25k unique keys
+Following i, 25k reads in 3 minutes to verify if the database stored the latest values for the inserted keys.
+Resources assigned to database for this test -
+256 MB main memory
+2 CPUs
+8 GB storage
+
+Test 2:
+~100k writes (key-value inserts) in 200 secs
+Resources assigned to database for this test -
+1024 MB main memory
+4 CPUs
+8 GB storage
 
 ## Testing 
 
 Tests are done using gatling - refer to repo https://github.com/ingaleniranjan365/key-value-database-performance-testing
-
-## Running the Application
-
-1. Clone or download this repository to your local machine.
-2. Open a terminal and navigate to the project directory.
-3. Compile the Java code using your preferred method.
-4. Run the compiled Java program.
-
-## Dockerization
-
-A Dockerfile is provided in the repository to containerize the application. To build and run the Docker container:
-
-1. Install Docker on your machine.
-2. Open a terminal and navigate to the project directory.
-3. Build the Docker image using the following command: docker build -t key-value-database .
-4. Run the Docker container with the following command: docker run -p 8080:8080 --memory=1g --cpus=4 --name key-value-container key-value-database
-
-Conclusion
-
-This key-value database implementation showcases how to handle various REST endpoints and requirements while providing a generic key-value storage solution in Java. It can handle insert and retrieval requests efficiently, ensuring data integrity and persistence.
